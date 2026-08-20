@@ -3282,7 +3282,20 @@ const keyMap = {
 };
 const arrowMap = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right' };
 
+// Verdadeiro se o jogador estiver digitando em algum campo de texto (email/
+// senha do login, ou qualquer input/textarea futuro) OU se o modal de login
+// ainda estiver na tela - nesses casos, as teclas do JOGO (WASD, setas,
+// espaco) nao devem fazer nada, pra nao atrapalhar a digitacao normal.
+function isTypingInField(){
+  const active = document.activeElement;
+  if(active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return true;
+  const authModal = document.getElementById('authModal');
+  if(authModal && !authModal.classList.contains('hidden')) return true;
+  return false;
+}
+
 window.addEventListener('keydown', function(e){
+  if(isTypingInField()) return;
   if(gameMode === 'pvp' && arrowMap[e.code]){
     // no PvP as setas controlam SO o Jogador 2 (o Jogador 1 usa WASD, que cai
     // no fluxo normal abaixo e continua escrevendo em "keys" - o mesmo objeto
@@ -3310,6 +3323,7 @@ window.addEventListener('keydown', function(e){
   }
 });
 window.addEventListener('keyup', function(e){
+  if(isTypingInField()) return;
   if(gameMode === 'pvp' && arrowMap[e.code]){
     keysP2[arrowMap[e.code]] = false;
     const el = document.getElementById('btn-'+arrowMap[e.code]+'-p2');
