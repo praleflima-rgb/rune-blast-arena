@@ -13,6 +13,8 @@
 <script src="https://gamepix.blob.core.windows.net/gpxlib/dev/gamepix.js"></script>
 <!-- Supabase: substitui o localStorage para carteira/VIP/passes por uma conta de jogador de verdade. Ver login.html e schema.sql -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- hCaptcha: provedor de CAPTCHA suportado nativamente pelo Supabase Auth. So funciona apos preencher HCAPTCHA_SITE_KEY no topo do script E ativar "Enable Captcha protection" no painel do Supabase (Authentication > Settings) -->
+<script src="https://js.hcaptcha.com/1/api.js?render=explicit&onload=onHcaptchaLoaded" async defer></script>
 <style>
   :root{
     --stone-dark:#1b1420;
@@ -119,6 +121,13 @@
     padding:20px;
   }
   #authModal.hidden{display:none;}
+  #setUsernameModal, #mfaChallengeModal{
+    position:fixed;inset:0;z-index:998;
+    background:rgba(6,3,10,.94);
+    display:flex;align-items:center;justify-content:center;
+    padding:20px;
+  }
+  #setUsernameModal.hidden, #mfaChallengeModal.hidden{display:none;}
   .auth-card{
     width:100%;max-width:360px;
     background:rgba(20,12,28,.95);
@@ -255,6 +264,17 @@
     box-shadow:0 0 10px rgba(94,230,255,.3);
   }
   .mode-card .mode-name{display:flex;align-items:center;gap:6px;}
+  .mode-demo-tag{
+    font-size:9px;font-weight:bold;letter-spacing:.5px;
+    background:rgba(148,163,184,.25);color:#cbd5e1;
+    border:1px solid rgba(148,163,184,.4);border-radius:5px;
+    padding:1px 5px;vertical-align:middle;margin-left:4px;
+  }
+  .mode-champion-tag{ color:var(--gold);font-weight:bold; }
+  .rank-board{ margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08); }
+  .rank-board:last-child{ border-bottom:none;margin-bottom:0;padding-bottom:0; }
+  .rank-board-title{ font-size:12px;font-weight:bold;color:var(--gold);margin-bottom:4px; }
+
   .mode-badge{
     font-size:10px;font-weight:bold;letter-spacing:.5px;flex-shrink:0;
     background:rgba(255,215,107,.15);color:var(--gold);
@@ -359,6 +379,14 @@
 
   /* ---------- Menu principal reestruturado ---------- */
   #overlay .tagline{ font-size:12px;color:#8a7fa0;margin:0 0 6px; }
+  .telegram-community-btn{
+    display:block;width:100%;max-width:460px;box-sizing:border-box;
+    text-align:center;text-decoration:none;
+    background:linear-gradient(180deg,#2fa8e8,#1a7fc4);color:#fff;
+    font-size:12px;font-weight:bold;
+    border-radius:10px;padding:9px 14px;margin-bottom:12px;
+    box-shadow:0 0 10px rgba(47,168,232,.3);
+  }
   .accordion-list{ width:100%;max-width:460px;display:flex;flex-direction:column;gap:6px;margin-top:10px; }
   .accordion-item{
     border:1px solid rgba(160,107,255,.25);
@@ -569,7 +597,39 @@
         <button id="authRegisterBtn" class="auth-btn-secondary">Criar Conta</button>
       </div>
 
+      <div id="hcaptchaContainer" style="margin-top:10px;"></div>
+
       <div id="authMsg"></div>
+    </div>
+  </div>
+
+  <div id="setUsernameModal" class="hidden">
+    <div class="auth-card">
+      <h2>&#128100; Escolha seu Apelido</h2>
+      <p class="auth-sub">Antes de jogar, defina como voce vai aparecer no Ranking</p>
+      <div class="auth-input-group">
+        <label for="firstUsernameInput">Apelido</label>
+        <input type="text" id="firstUsernameInput" placeholder="Como vai aparecer no Ranking" maxlength="20" autocomplete="off">
+      </div>
+      <div class="auth-btn-group">
+        <button id="firstUsernameSaveBtn" class="auth-btn-primary">Salvar e continuar</button>
+      </div>
+      <div id="firstUsernameMsg"></div>
+    </div>
+  </div>
+
+  <div id="mfaChallengeModal" class="hidden">
+    <div class="auth-card">
+      <h2>&#128274; Verificacao em 2 Etapas</h2>
+      <p class="auth-sub">Digite o codigo de 6 digitos do seu app autenticador</p>
+      <div class="auth-input-group">
+        <label for="mfaCodeInput">Codigo</label>
+        <input type="text" id="mfaCodeInput" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+      </div>
+      <div class="auth-btn-group">
+        <button id="mfaVerifyBtn" class="auth-btn-primary">Verificar</button>
+      </div>
+      <div id="mfaChallengeMsg"></div>
     </div>
   </div>
 
@@ -578,6 +638,9 @@
     <button id="logoutBtn" title="Sair da conta" style="display:none;">&#128274;</button>
     <h1>Rune Blast Arena</h1>
     <p class="tagline">Escolha o modo, escolha seu herói, e vá para a arena.</p>
+    <a href="https://t.me/+Ew9lZQZlez0xYmY5" target="_blank" rel="noopener noreferrer" class="telegram-community-btn">
+      &#128172; Comunidade Telegram &mdash; novidades, rankings e campeões do dia
+    </a>
 
     <div class="daily-panel" id="gameModesPanel"><!-- preenchido via JS: renderGameModesPanel() --></div>
 
@@ -603,6 +666,12 @@
     <button id="startBtn" style="display:none;">&#9876;&#65039; Jogar Agora</button>
 
     <div class="accordion-list">
+      <div class="accordion-item">
+        <button class="accordion-header" data-target="acc-profile">&#128100; Meu Perfil</button>
+        <div class="accordion-body" id="acc-profile">
+          <div class="daily-panel" id="profilePanel"><!-- preenchido via JS: renderProfilePanel() --></div>
+        </div>
+      </div>
       <div class="accordion-item">
         <button class="accordion-header" data-target="acc-legend">&#128214; Como Jogar</button>
         <div class="accordion-body" id="acc-legend">
@@ -688,6 +757,43 @@ const supabaseConfigured = typeof window.supabase !== 'undefined' &&
 const supabaseClient = supabaseConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 let currentUserId = null;
 
+/* ============================================================
+   CAPTCHA (hCaptcha) - protecao opcional do cadastro/login.
+   So ativa de verdade se HCAPTCHA_SITE_KEY for preenchida abaixo
+   E "Enable Captcha protection" estiver ligado no painel do
+   Supabase (Authentication > Settings > Bot and Abuse Protection),
+   com a mesma chave (site key + secret key) cadastrada la. Sem
+   isso, o jogo funciona normalmente sem CAPTCHA (nada quebra).
+============================================================ */
+const HCAPTCHA_SITE_KEY = 'COLE_AQUI_SUA_HCAPTCHA_SITE_KEY';
+const captchaConfigured = HCAPTCHA_SITE_KEY !== 'COLE_AQUI_SUA_HCAPTCHA_SITE_KEY' && !!HCAPTCHA_SITE_KEY;
+let hcaptchaWidgetId = null;
+
+function renderCaptchaWidgetIfConfigured(){
+  if(!captchaConfigured || typeof window.hcaptcha === 'undefined') return;
+  const container = document.getElementById('hcaptchaContainer');
+  if(!container || hcaptchaWidgetId !== null) return; // ja renderizado
+  hcaptchaWidgetId = window.hcaptcha.render(container, { sitekey: HCAPTCHA_SITE_KEY });
+}
+
+// Devolve { captchaToken: '...' } pronto pra ir dentro de "options" do
+// signUp/signInWithPassword - ou {} se o CAPTCHA nao estiver configurado
+// (a chamada ao Supabase funciona normalmente sem esse campo).
+function getCaptchaOptions(){
+  if(!captchaConfigured || typeof window.hcaptcha === 'undefined' || hcaptchaWidgetId === null) return {};
+  const token = window.hcaptcha.getResponse(hcaptchaWidgetId);
+  if(!token) return {};
+  return { captchaToken: token };
+}
+function resetCaptchaWidget(){
+  if(captchaConfigured && typeof window.hcaptcha !== 'undefined' && hcaptchaWidgetId !== null){
+    window.hcaptcha.reset(hcaptchaWidgetId);
+  }
+}
+// o script do hCaptcha chama isso assim que termina de carregar (fora da
+// nossa IIFE, entao precisa estar pendurado direto no window)
+window.onHcaptchaLoaded = renderCaptchaWidgetIfConfigured;
+
 // Envia o estado atual (carteira, VIP, passes do dia) pro Supabase em
 // segundo plano. Nao trava o jogo esperando resposta da rede - so avisa no
 // console se der erro. O localStorage continua sendo escrito tambem (serve
@@ -700,7 +806,7 @@ function syncProfileToSupabase(){
       wallet_gold: walletGold,
       is_vip: vipState.active,
       vip_expires_at: vipState.expiresAt ? new Date(vipState.expiresAt).toISOString() : null,
-      daily_passes: loadDailyPasses()
+      daily_passes: loadDailyPassState()
     })
     .eq('id', currentUserId)
     .then(function(res){
@@ -749,8 +855,8 @@ async function loadProfileFromSupabase(userId, usernameHint){
       durationDays: VIP_DURATION_DAYS
     };
     refreshVipFlag();
-    dailyPassesCache = (data.daily_passes && typeof data.daily_passes === 'object') ? data.daily_passes : {};
-    try{ localStorage.setItem(DAILY_PASS_KEY, JSON.stringify(dailyPassesCache)); }catch(e){ /* localStorage indisponivel */ }
+    dailyPassCache = (typeof data.daily_passes === 'string') ? data.daily_passes : null;
+    try{ if(dailyPassCache) localStorage.setItem(DAILY_PASS_KEY, dailyPassCache); }catch(e){ /* localStorage indisponivel */ }
     playerUsername = data.username || ('Mago' + Math.floor(1000 + Math.random()*9000));
   }
 }
@@ -778,6 +884,68 @@ function hideAuthModalAndBoot(){
   bootGame();
 }
 
+// Chamada depois de QUALQUER autenticacao bem-sucedida (login normal, login
+// com 2FA verificado, ou cadastro novo). Carrega o perfil e so libera o
+// jogo se o apelido ja estiver definido - senao, forca a tela de escolher
+// apelido primeiro (Identificacao Inicial pedida).
+async function afterSuccessfulAuth(userId, usernameHint){
+  await loadProfileFromSupabase(userId, usernameHint);
+  if(!playerUsername){
+    const modal = document.getElementById('authModal');
+    if(modal) modal.classList.add('hidden');
+    showSetUsernameModal();
+    return;
+  }
+  hideAuthModalAndBoot();
+}
+
+// Confere se a conta que acabou de autenticar com senha exige uma segunda
+// etapa (2FA/TOTP). Devolve o factorId a desafiar, ou null se nao precisa.
+async function checkMfaChallengeRequired(){
+  const { data, error } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+  if(error || !data) return null;
+  if(data.nextLevel === 'aal2' && data.currentLevel !== 'aal2'){
+    const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
+    const totpFactor = (factorsData && factorsData.totp && factorsData.totp.length) ? factorsData.totp[0] : null;
+    return totpFactor ? totpFactor.id : null;
+  }
+  return null;
+}
+
+function showMfaChallengeModal(factorId, userId){
+  const modal = document.getElementById('mfaChallengeModal');
+  const msgEl = document.getElementById('mfaChallengeMsg');
+  const codeInput = document.getElementById('mfaCodeInput');
+  if(msgEl){ msgEl.className=''; msgEl.textContent=''; }
+  if(codeInput) codeInput.value = '';
+  if(modal) modal.classList.remove('hidden');
+
+  const verifyBtn = document.getElementById('mfaVerifyBtn');
+  const handler = async function(){
+    const code = (codeInput.value || '').trim();
+    if(code.length !== 6){ msgEl.className='error'; msgEl.textContent='Digite os 6 digitos do codigo.'; return; }
+    verifyBtn.disabled = true;
+    msgEl.className=''; msgEl.textContent='Verificando...';
+
+    const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({ factorId });
+    if(challengeError){
+      verifyBtn.disabled = false;
+      msgEl.className='error'; msgEl.textContent='Erro ao gerar desafio: ' + challengeError.message;
+      return;
+    }
+    const { error: verifyError } = await supabaseClient.auth.mfa.verify({ factorId, challengeId: challengeData.id, code });
+    verifyBtn.disabled = false;
+    if(verifyError){
+      msgEl.className='error'; msgEl.textContent='Codigo incorreto. Tente novamente.';
+      return;
+    }
+    verifyBtn.removeEventListener('click', handler);
+    modal.classList.add('hidden');
+    await afterSuccessfulAuth(userId);
+  };
+  verifyBtn.addEventListener('click', handler);
+}
+
 async function handleAuthLogin(){
   const identifier = (document.getElementById('authIdentifier').value || '').trim();
   const password = document.getElementById('authPassword').value || '';
@@ -800,13 +968,22 @@ async function handleAuthLogin(){
     email = foundEmail;
   }
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password, options: getCaptchaOptions() });
+  resetCaptchaWidget();
   setAuthButtonsDisabled(false);
 
   if(error){ showAuthError('Apelido/e-mail ou senha incorretos!'); return; }
-  showAuthMessage('Login bem-sucedido! Entrando...');
-  await loadProfileFromSupabase(data.session.user.id);
-  hideAuthModalAndBoot();
+  showAuthMessage('Login bem-sucedido! Verificando...');
+
+  const factorId = await checkMfaChallengeRequired();
+  if(factorId){
+    const modal = document.getElementById('authModal');
+    if(modal) modal.classList.add('hidden');
+    showMfaChallengeModal(factorId, data.session.user.id);
+    return;
+  }
+
+  await afterSuccessfulAuth(data.session.user.id);
 }
 
 async function handleAuthRegister(){
@@ -823,16 +1000,16 @@ async function handleAuthRegister(){
   showAuthMessage('Criando conta...');
   const { data, error } = await supabaseClient.auth.signUp({
     email, password,
-    options: { data: { username: username } }
+    options: Object.assign({ data: { username: username } }, getCaptchaOptions())
   });
+  resetCaptchaWidget();
   setAuthButtonsDisabled(false);
 
   if(error){ showAuthError('Erro ao criar conta: ' + error.message); return; }
 
   if(data.session){
     showAuthMessage('Conta criada! Entrando...');
-    await loadProfileFromSupabase(data.session.user.id, username);
-    hideAuthModalAndBoot();
+    await afterSuccessfulAuth(data.session.user.id, username);
   } else {
     showAuthMessage('Conta criada! Verifique seu e-mail para confirmar antes de entrar.');
   }
@@ -842,6 +1019,145 @@ async function handleAuthRegister(){
 // visivel por padrao via HTML/CSS puro, entao aqui so decidimos SE ele
 // deve continuar visivel (sem sessao / Supabase mal configurado) ou se
 // pode sumir e liberar o jogo (sessao valida confirmada).
+function showSetUsernameModal(){
+  const modal = document.getElementById('setUsernameModal');
+  if(modal) modal.classList.remove('hidden');
+}
+function hideSetUsernameModal(){
+  const modal = document.getElementById('setUsernameModal');
+  if(modal) modal.classList.add('hidden');
+}
+
+// Atualiza o apelido nos DOIS lugares: nos metadados do Supabase Auth
+// (updateUser, pedido explicitamente) E na tabela profiles (que e o que o
+// login-por-apelido e o Ranking realmente leem para exibir/buscar) - sem
+// os dois, a troca nao refletiria em tudo que usa o apelido.
+async function updateUsernameEverywhere(newUsername){
+  if(!supabaseConfigured || !currentUserId) return false;
+  const { error: authError } = await supabaseClient.auth.updateUser({ data: { username: newUsername } });
+  if(authError) return false;
+  const { error: profileError } = await supabaseClient.from('profiles').update({ username: newUsername }).eq('id', currentUserId);
+  if(profileError) return false;
+  playerUsername = newUsername;
+  return true;
+}
+
+async function handleSaveFirstUsername(){
+  const input = document.getElementById('firstUsernameInput');
+  const msgEl = document.getElementById('firstUsernameMsg');
+  const username = (input.value || '').trim();
+  if(username.length < 3 || /\s/.test(username)){
+    msgEl.className = 'error'; msgEl.textContent = 'Apelido invalido (minimo 3 caracteres, sem espacos).';
+    return;
+  }
+  msgEl.className = ''; msgEl.textContent = 'Salvando...';
+  const ok = await updateUsernameEverywhere(username);
+  if(!ok){ msgEl.className = 'error'; msgEl.textContent = 'Esse apelido ja esta em uso, tente outro.'; return; }
+  hideSetUsernameModal();
+  hideAuthModalAndBoot();
+}
+
+function renderProfilePanel(){
+  const el = document.getElementById('profilePanel');
+  if(!el) return;
+
+  if(!supabaseConfigured || !currentUserId){
+    el.innerHTML = '<div class="daily-milestone">Faca login para gerenciar seu perfil.</div>';
+    return;
+  }
+
+  el.innerHTML =
+    '<div class="daily-milestone">Apelido atual: <b>' + escapeHtml(playerUsername || '-') + '</b></div>' +
+    '<div class="lb-name-row">' +
+      '<input id="editUsernameInput" type="text" maxlength="20" placeholder="Novo apelido">' +
+      '<button id="editUsernameSaveBtn" class="daily-btn">Salvar</button>' +
+    '</div>' +
+    '<div id="editUsernameMsg" style="font-size:11px;margin-top:4px;"></div>' +
+    '<div class="daily-milestone" style="margin-top:14px;">&#128274; Seguranca da conta</div>' +
+    '<div id="mfaStatusArea"><div class="daily-milestone">Verificando...</div></div>';
+
+  document.getElementById('editUsernameSaveBtn').addEventListener('click', async function(){
+    const input = document.getElementById('editUsernameInput');
+    const msgEl = document.getElementById('editUsernameMsg');
+    const newUsername = (input.value || '').trim();
+    if(newUsername.length < 3 || /\s/.test(newUsername)){
+      msgEl.className = 'error'; msgEl.textContent = 'Apelido invalido (min. 3 caracteres, sem espacos).';
+      return;
+    }
+    msgEl.className = ''; msgEl.textContent = 'Salvando...';
+    const ok = await updateUsernameEverywhere(newUsername);
+    if(!ok){ msgEl.className='error'; msgEl.textContent = 'Nao foi possivel salvar (apelido em uso?).'; return; }
+    msgEl.className = 'success'; msgEl.textContent = 'Apelido atualizado! Vale a partir da proxima pontuacao enviada ao ranking.';
+    renderProfilePanel();
+    renderLeaderboardPanel();
+  });
+
+  renderMfaStatus();
+}
+
+// Mostra se a conta ja tem 2FA/TOTP ativo (verificado) ou nao, com o botao
+// correspondente (ativar ou desativar).
+async function renderMfaStatus(){
+  const el = document.getElementById('mfaStatusArea');
+  if(!el) return;
+
+  const { data, error } = await supabaseClient.auth.mfa.listFactors();
+  if(error){ el.innerHTML = '<div class="daily-milestone">Nao foi possivel verificar o 2FA: ' + escapeHtml(error.message) + '</div>'; return; }
+
+  const verifiedTotp = (data.totp || []).find(function(f){ return f.status === 'verified'; });
+  if(verifiedTotp){
+    el.innerHTML =
+      '<div class="daily-milestone">&#9989; Verificacao em 2 etapas ATIVA</div>' +
+      '<button id="disableMfaBtn" class="daily-btn" style="margin-top:6px;">Desativar 2FA</button>';
+    document.getElementById('disableMfaBtn').addEventListener('click', async function(){
+      await supabaseClient.auth.mfa.unenroll({ factorId: verifiedTotp.id });
+      renderMfaStatus();
+    });
+  } else {
+    el.innerHTML =
+      '<div class="daily-milestone">Verificacao em 2 etapas desativada.</div>' +
+      '<button id="enableMfaBtn" class="daily-btn" style="margin-top:6px;">Ativar 2FA</button>';
+    document.getElementById('enableMfaBtn').addEventListener('click', startMfaEnrollment);
+  }
+}
+
+// Inicia o cadastro de 2FA: pede o QR Code pro Supabase (ja vem pronto
+// como SVG em data.totp.qr_code - injeta direto no HTML) e so ativa de
+// verdade depois de confirmar 1 codigo valido gerado a partir dele.
+async function startMfaEnrollment(){
+  const el = document.getElementById('mfaStatusArea');
+  el.innerHTML = '<div class="daily-milestone">Gerando QR Code...</div>';
+
+  const { data, error } = await supabaseClient.auth.mfa.enroll({ factorType: 'totp' });
+  if(error){ el.innerHTML = '<div class="daily-milestone">Erro ao gerar 2FA: ' + escapeHtml(error.message) + '</div>'; return; }
+
+  const factorId = data.id;
+  el.innerHTML =
+    '<div class="daily-milestone">Escaneie com o Google Authenticator ou Authy:</div>' +
+    '<div style="background:#fff;border-radius:8px;padding:8px;margin:8px 0;display:flex;justify-content:center;">' + data.totp.qr_code + '</div>' +
+    '<div class="auth-input-group">' +
+      '<label for="mfaEnrollCodeInput">Codigo de confirmacao</label>' +
+      '<input type="text" id="mfaEnrollCodeInput" maxlength="6" inputmode="numeric" placeholder="000000">' +
+    '</div>' +
+    '<button id="mfaEnrollConfirmBtn" class="daily-btn">Confirmar Ativacao</button>' +
+    '<div id="mfaEnrollMsg" style="font-size:11px;margin-top:4px;"></div>';
+
+  document.getElementById('mfaEnrollConfirmBtn').addEventListener('click', async function(){
+    const code = (document.getElementById('mfaEnrollCodeInput').value || '').trim();
+    const msgEl = document.getElementById('mfaEnrollMsg');
+    if(code.length !== 6){ msgEl.className='error'; msgEl.textContent='Digite os 6 digitos.'; return; }
+    msgEl.className = ''; msgEl.textContent = 'Confirmando...';
+
+    const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({ factorId });
+    if(challengeError){ msgEl.className='error'; msgEl.textContent = challengeError.message; return; }
+
+    const { error: verifyError } = await supabaseClient.auth.mfa.verify({ factorId, challengeId: challengeData.id, code });
+    if(verifyError){ msgEl.className='error'; msgEl.textContent = 'Codigo incorreto.'; return; }
+
+    renderMfaStatus();
+  });
+}
+
 async function checkAuthAndBoot(){
   const loginBtnEl = document.getElementById('authLoginBtn');
   const registerBtnEl = document.getElementById('authRegisterBtn');
@@ -851,6 +1167,8 @@ async function checkAuthAndBoot(){
   if(passwordEl) passwordEl.addEventListener('keydown', function(e){ if(e.key==='Enter') handleAuthLogin(); });
   const identifierEl = document.getElementById('authIdentifier');
   if(identifierEl) identifierEl.addEventListener('keydown', function(e){ if(e.key==='Enter') handleAuthLogin(); });
+  const firstUsernameBtnEl = document.getElementById('firstUsernameSaveBtn');
+  if(firstUsernameBtnEl) firstUsernameBtnEl.addEventListener('click', handleSaveFirstUsername);
 
   if(!supabaseConfigured){
     // mensagem VISIVEL na tela (nao so no console) - se voce esta vendo
@@ -2557,7 +2875,7 @@ function renderInvitePanel(){
 }
 
 function tryStartNewRun(){
-  if((selectedGameMode === 'pvp' || selectedGameMode === 'survival') && !hasActiveDailyPass(selectedRankCategory)){
+  if((selectedGameMode === 'pvp' || selectedGameMode === 'survival') && !hasActiveDailyPass()){
     showBuyPassRequiredScreen();
     return;
   }
@@ -2579,21 +2897,19 @@ function tryStartNewRun(){
   }
 }
 
-// PvP e Sobrevivencia agora exigem passe ativo do Ranking Diario na
-// categoria selecionada - sem passe, mostra esta tela em vez de comecar a
-// partida, com um jeito rapido de ir direto comprar.
+// PvP e Sobrevivencia exigem o Passe Diario ativo - sem passe, mostra esta
+// tela em vez de comecar a partida, com um jeito rapido de ir direto comprar.
 function showBuyPassRequiredScreen(){
-  const cat = RANK_CATEGORIES.find(function(c){ return c.id===selectedRankCategory; }) || RANK_CATEGORIES[0];
   const modeLabel = selectedGameMode === 'pvp' ? 'PvP' : 'Sobrevivencia';
   const overlay = document.getElementById('overlay');
   overlay.classList.remove('hidden');
   overlay.innerHTML =
     '<h1>&#128274; Passe necessario</h1>' +
-    '<p>O modo ' + modeLabel + ' exige o passe do dia da categoria <b>' + cat.name + '</b> (R$' + (cat.passBrlCents/100).toFixed(2) + ').</p>' +
+    '<p>O modo ' + modeLabel + ' exige o Passe Diario (R$' + (DAILY_PASS_PRICE_CENTS/100).toFixed(2) + ') - vale para os dois modos ate as 21h.</p>' +
     '<button id="buyPassNowBtn">Comprar Passe Agora</button>' +
     '<button id="backToMenuFromLockBtn" style="margin-top:8px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
   document.getElementById('buyPassNowBtn').addEventListener('click', function(){
-    buyDailyPass(cat.id);
+    buyDailyPass();
     location.reload();
   });
   document.getElementById('backToMenuFromLockBtn').addEventListener('click', function(){
@@ -2716,20 +3032,24 @@ document.querySelectorAll('.accordion-header').forEach(function(header){
 function renderGameModesPanel(){
   const el = document.getElementById('gameModesPanel');
   if(!el) return;
-  const hasPass = hasActiveDailyPass(selectedRankCategory);
+  const hasPass = hasActiveDailyPass();
+  const champions = loadLastChampions();
   const modes = [
-    {id:'campaign', icon:'&#127943;', name:'Campanha (PVE)', desc:'10 fases + Malak', cover:'assets/cover_campaign.jpg'},
-    {id:'survival', icon:'&#9760;&#65039;', name:'Sobrevivencia', desc:'4 herois, so 1 sobrevive', cover:'assets/cover_survival.jpg', needsPass:true},
-    {id:'pvp', icon:'&#9876;&#65039;', name:'PvP Local', desc:'2 jogadores, 1 aparelho', cover:'assets/cover_pvp.jpg', needsPass:true}
+    {id:'campaign', icon:'&#127943;', name:'Campanha (PVE)', desc:'10 fases + Malak', cover:'assets/cover_campaign.jpg', demo:true},
+    {id:'survival', icon:'&#9760;&#65039;', name:'Sobrevivencia', desc:'4 herois, so 1 sobrevive', cover:'assets/cover_survival.jpg', needsPass:true, rankMode:'survival'},
+    {id:'pvp', icon:'&#9876;&#65039;', name:'PvP Local', desc:'2 jogadores, 1 aparelho', cover:'assets/cover_pvp.jpg', needsPass:true, rankMode:'pvp'}
   ];
   el.innerHTML =
     '<div class="daily-title">&#127918; Escolha o Modo de Jogo</div>' +
     modes.map(function(m){
       const sel = m.id === selectedGameMode;
       const locked = m.needsPass && !hasPass;
+      const champion = m.rankMode ? champions[m.rankMode] : null;
       const coverStyle = m.cover ? ' style="background-image:linear-gradient(180deg,rgba(10,6,15,.15),rgba(10,6,15,.85)),url(\'' + m.cover + '\');background-size:cover;background-position:center 20%;"' : '';
       return '<div class="mode-card mode-card-big' + (sel?' selected':'') + (m.cover?' has-cover':'') + '" data-mode="' + m.id + '"' + coverStyle + '>' +
-        '<span class="mode-name">' + m.icon + ' ' + m.name + '<br><small>' + m.desc + (locked ? ' &mdash; \u{1F512} requer passe do dia' : '') + '</small></span>' +
+        '<span class="mode-name">' + m.icon + ' ' + m.name + (m.demo ? ' <span class="mode-demo-tag">DEMO</span>' : '') + '<br><small>' + m.desc + (locked ? ' &mdash; \u{1F512} requer passe do dia' : '') + '</small>' +
+        (champion ? '<br><small class="mode-champion-tag">\u{1F451} Ultimo Campeao: ' + escapeHtml(champion) + '</small>' : '') +
+        '</span>' +
         (sel ? '<span class="mode-badge sel">SELECIONADO</span>' : (locked ? '<span class="mode-badge">\u{1F512} PASSE</span>' : '')) +
       '</div>';
     }).join('');
@@ -2940,21 +3260,23 @@ function renderLeaderboardPanel(){
    conversivel em valor monetario - a unica recompensa e o titulo
    cosmetico do TOP 3 do dia. Ver texto de regras nos Termos do jogo.
 ============================================================ */
-const RANK_CATEGORIES = [
-  {id:'basica',        name:'B\u00e1sica',        passBrlCents:200,  color:'#5ee6ff'},
-  {id:'intermediaria',  name:'Intermedi\u00e1ria', passBrlCents:500,  color:'#ffd76b'},
-  {id:'competitiva',    name:'Competitiva',        passBrlCents:1000, color:'#ff6b8a'}
+const RANK_MODES = [
+  {id:'survival', name:'Sobrevivência', icon:'\u2620\uFE0F'},
+  {id:'pvp',       name:'PvP',           icon:'\u2694\uFE0F'}
 ];
+const DAILY_PASS_PRICE_CENTS = 500; // R$5,00 - passe unico, vale para os dois modos
 const DAILY_RESET_HOUR = 21; // corte do ciclo: 21h todos os dias
-const DAILY_RANK_KEY_PREFIX = 'rb_daily_rank_v1_';
-const DAILY_PASS_KEY = 'rb_daily_pass_v1';
-const DAILY_TITLES_KEY = 'rb_daily_titles_v1';
-const DAILY_HISTORY_KEY = 'rb_daily_history_v1';
+const DAILY_RANK_KEY_PREFIX = 'rb_daily_rank_v2_';
+const DAILY_PASS_KEY = 'rb_daily_pass_v2';
+const DAILY_TITLES_KEY = 'rb_daily_titles_v2';
+const DAILY_HISTORY_KEY = 'rb_daily_history_v2';
+const LAST_CHAMPIONS_KEY = 'rb_last_champions_v1';
 
-// pontuacao de sobrevivencia por colocacao na partida (1o=vencedor, 4o=primeiro a morrer)
-const SURVIVAL_POINTS_BY_PLACEMENT = {1:8, 2:5, 3:3, 4:1};
+// pontuacao por colocacao na partida, uma tabela por modo (pedido explicito)
+const SURVIVAL_POINTS_BY_PLACEMENT = {1:8, 2:5, 3:3, 4:1}; // 1o=ultimo sobrevivente
+const PVP_POINTS_BY_PLACEMENT = {1:5, 2:2}; // 1o=vencedor, 2o=perdedor
 
-let selectedRankCategory = 'basica';
+let selectedRankMode = 'survival';
 
 // "Dia do ciclo": partidas depois das 21h pertencem ao ciclo que fecha no
 // PROXIMO corte de 21h (nao ao dia civil corrente). Formato: 'YYYY-MM-DD'.
@@ -2970,31 +3292,28 @@ function getCycleEndTimestamp(cycleDateKey){
   return new Date(parts[0], parts[1]-1, parts[2], DAILY_RESET_HOUR, 0, 0, 0).getTime();
 }
 
-let dailyPassesCache = null;
-function loadDailyPasses(){
-  if(dailyPassesCache) return dailyPassesCache;
-  let p = null;
-  try{ p = JSON.parse(localStorage.getItem(DAILY_PASS_KEY)); }catch(e){ p = null; }
-  dailyPassesCache = (p && typeof p==='object') ? p : {};
-  return dailyPassesCache;
+// Passe UNICO (sem categorias de preco) - guarda so a data do ciclo em que
+// foi comprado. Continua sendo uma compra de DEMONSTRACAO local (mesmo
+// padrao do botao de VIP): nao ha checkout nem carteira real conectada
+// aqui - ver a explicacao completa dada junto com esta atualizacao.
+let dailyPassCache = null;
+function loadDailyPassState(){
+  if(dailyPassCache !== null) return dailyPassCache;
+  let v = null;
+  try{ v = localStorage.getItem(DAILY_PASS_KEY); }catch(e){ v = null; }
+  dailyPassCache = v;
+  return dailyPassCache;
 }
-function saveDailyPasses(p){
-  dailyPassesCache = p;
-  try{ localStorage.setItem(DAILY_PASS_KEY, JSON.stringify(p)); }catch(e){ /* localStorage indisponivel */ }
+function saveDailyPassState(cycleDate){
+  dailyPassCache = cycleDate;
+  try{ localStorage.setItem(DAILY_PASS_KEY, cycleDate); }catch(e){ /* localStorage indisponivel */ }
   syncProfileToSupabase();
 }
-function hasActiveDailyPass(categoryId){
-  const passes = loadDailyPasses();
-  return passes[categoryId] === getCycleDateKey();
+function hasActiveDailyPass(){
+  return loadDailyPassState() === getCycleDateKey();
 }
-// Compra (demo local, mesmo padrao do botao de ativar VIP - sem gateway de
-// pagamento real conectado neste ambiente) o passe da categoria para o
-// ciclo atual. O passe libera a entrada no Modo Sobrevivencia ranqueado
-// daquela categoria ate o proximo corte de 21h.
-function buyDailyPass(categoryId){
-  const passes = loadDailyPasses();
-  passes[categoryId] = getCycleDateKey();
-  saveDailyPasses(passes);
+function buyDailyPass(){
+  saveDailyPassState(getCycleDateKey());
 }
 
 function loadDailyTitles(){
@@ -3014,14 +3333,27 @@ function loadDailyHistory(){
 function saveDailyHistory(h){
   try{ localStorage.setItem(DAILY_HISTORY_KEY, JSON.stringify(h.slice(-200))); }catch(e){ /* localStorage indisponivel */ }
 }
-function appendDailyHistory(categoryId, points){
+function appendDailyHistory(mode, points){
   const hist = loadDailyHistory();
   const cycle = getCycleDateKey();
-  let today = hist.find(function(h){ return h.category===categoryId && h.cycleDate===cycle; });
-  if(!today){ today = {category:categoryId, cycleDate:cycle, points:0, matches:0}; hist.push(today); }
+  let today = hist.find(function(h){ return h.mode===mode && h.cycleDate===cycle; });
+  if(!today){ today = {mode:mode, cycleDate:cycle, points:0, matches:0}; hist.push(today); }
   today.points += points;
   today.matches += 1;
   saveDailyHistory(hist);
+}
+
+// "Ultimo Campeao" de cada modo (TOP 1 do ciclo mais recente ja fechado) -
+// so um titulo cosmetico de reconhecimento, sem nenhum valor associado.
+function loadLastChampions(){
+  let obj = null;
+  try{ obj = JSON.parse(localStorage.getItem(LAST_CHAMPIONS_KEY)); }catch(e){ obj = null; }
+  return (obj && typeof obj==='object') ? obj : {};
+}
+function saveLastChampion(mode, name){
+  const obj = loadLastChampions();
+  obj[mode] = name;
+  try{ localStorage.setItem(LAST_CHAMPIONS_KEY, JSON.stringify(obj)); }catch(e){ /* localStorage indisponivel */ }
 }
 
 // Nomes-seed so para a demo local nao ficar vazia (mesmo padrao do ranking
@@ -3038,9 +3370,9 @@ function seedDailyRankPlayers(){
   });
 }
 
-// Fecha o ciclo anterior: define o TOP 3 e grava o titulo cosmetico
-// correspondente na conta do jogador, se ele estiver entre eles.
-function archiveDailyCycleAndAwardBadges(categoryId, closedData){
+// Fecha o ciclo anterior: define o TOP 3 (titulo cosmetico) e registra o
+// TOP 1 como "Ultimo Campeao" do modo, exibido em destaque no menu.
+function archiveDailyCycleAndAwardBadges(mode, closedData){
   if(!closedData || !closedData.players || !closedData.players.length) return;
   const sorted = closedData.players.slice().sort(function(a,b){ return b.points - a.points; });
   const badgeNames = ['campeao','vice','terceiro'];
@@ -3048,38 +3380,40 @@ function archiveDailyCycleAndAwardBadges(categoryId, closedData){
   let changed = false;
   sorted.slice(0,3).forEach(function(p, i){
     if(p.name === playerName){
-      titles.push({category:categoryId, cycleDate:closedData.cycleDate, badge:badgeNames[i]});
+      titles.push({mode:mode, cycleDate:closedData.cycleDate, badge:badgeNames[i]});
       changed = true;
     }
   });
   if(changed) saveDailyTitles(titles);
+  if(sorted[0]) saveLastChampion(mode, sorted[0].name);
 }
 
-// Le o ranking ao vivo da categoria, fechando e arquivando automaticamente
-// o ciclo anterior (com premiacao de titulos) se o corte de 21h ja passou.
-function loadDailyRank(categoryId){
-  const key = DAILY_RANK_KEY_PREFIX + categoryId;
+// Le o ranking ao vivo do MODO, fechando e arquivando automaticamente o
+// ciclo anterior (com titulo cosmetico) se o corte de 21h ja passou.
+function loadDailyRank(mode){
+  const key = DAILY_RANK_KEY_PREFIX + mode;
   let data = null;
   try{ data = JSON.parse(localStorage.getItem(key)); }catch(e){ data = null; }
   const currentCycle = getCycleDateKey();
 
   if(!data || data.cycleDate !== currentCycle){
-    if(data && data.cycleDate) archiveDailyCycleAndAwardBadges(categoryId, data);
+    if(data && data.cycleDate) archiveDailyCycleAndAwardBadges(mode, data);
     data = { cycleDate: currentCycle, players: seedDailyRankPlayers() };
     try{ localStorage.setItem(key, JSON.stringify(data)); }catch(e){ /* localStorage indisponivel */ }
   }
   return data;
 }
-function saveDailyRank(categoryId, data){
-  try{ localStorage.setItem(DAILY_RANK_KEY_PREFIX + categoryId, JSON.stringify(data)); }catch(e){ /* localStorage indisponivel */ }
+function saveDailyRank(mode, data){
+  try{ localStorage.setItem(DAILY_RANK_KEY_PREFIX + mode, JSON.stringify(data)); }catch(e){ /* localStorage indisponivel */ }
 }
 
-// Credita os pontos de sobrevivencia (1/3/5/8) da colocacao na partida ao
-// ranking ao vivo da categoria. So chamada quando o jogador tem passe ativo.
-function awardDailyRankPoints(categoryId, placement){
-  const points = SURVIVAL_POINTS_BY_PLACEMENT[placement] || 0;
+// Credita os pontos de colocacao (tabela propria por modo) ao ranking ao
+// vivo daquele modo. So chamada quando o jogador tem passe ativo.
+function awardDailyRankPoints(mode, placement){
+  const table = mode === 'pvp' ? PVP_POINTS_BY_PLACEMENT : SURVIVAL_POINTS_BY_PLACEMENT;
+  const points = table[placement] || 0;
   if(points <= 0) return 0;
-  const data = loadDailyRank(categoryId);
+  const data = loadDailyRank(mode);
   let entry = data.players.find(function(p){ return p.name === playerName; });
   if(!entry){
     entry = {name:playerName, points:0, matches:0, bestPlacement:5};
@@ -3088,8 +3422,8 @@ function awardDailyRankPoints(categoryId, placement){
   entry.points += points;
   entry.matches += 1;
   entry.bestPlacement = Math.min(entry.bestPlacement, placement);
-  saveDailyRank(categoryId, data);
-  appendDailyHistory(categoryId, points);
+  saveDailyRank(mode, data);
+  appendDailyHistory(mode, points);
   return points;
 }
 
@@ -3103,30 +3437,16 @@ function formatCountdown(ms){
   return pad(hh)+':'+pad(mm)+':'+pad(ss);
 }
 
-function selectRankCategory(categoryId){
-  selectedRankCategory = categoryId;
-  renderDailyRankPanel();
-}
-
-function renderDailyRankPanel(){
-  const el = document.getElementById('dailyRankPanel');
-  if(!el) return;
-
-  const cat = RANK_CATEGORIES.find(function(c){ return c.id===selectedRankCategory; }) || RANK_CATEGORIES[0];
-  const data = loadDailyRank(cat.id);
+// Monta o HTML de UM board de ranking (usado 2x: Sobrevivencia e PvP)
+function renderRankBoardHtml(mode){
+  const modeInfo = RANK_MODES.find(function(m){ return m.id===mode; });
+  const data = loadDailyRank(mode);
   const sorted = data.players.slice().sort(function(a,b){ return b.points-a.points; });
   const myEntry = sorted.find(function(p){ return p.name===playerName; });
   const myRank = myEntry ? sorted.indexOf(myEntry)+1 : null;
-  const hasPass = hasActiveDailyPass(cat.id);
   const cycleEndsAt = getCycleEndTimestamp(data.cycleDate);
-  const titles = loadDailyTitles();
-  const history = loadDailyHistory().filter(function(h){ return h.category===cat.id; }).slice(-7).reverse();
 
-  const tabsHtml = RANK_CATEGORIES.map(function(c){
-    return '<div class="rank-cat-tab' + (c.id===selectedRankCategory?' active':'') + '" data-cat="' + c.id + '">' + c.name + '</div>';
-  }).join('');
-
-  const rowsHtml = sorted.slice(0, 20).map(function(p, i){
+  const rowsHtml = sorted.slice(0, 10).map(function(p, i){
     const medal = i===0?'\u{1F947} ':(i===1?'\u{1F948} ':(i===2?'\u{1F949} ':''));
     const mine = (p.name===playerName) ? ' me' : '';
     return '<div class="lb-row' + mine + '">' +
@@ -3136,21 +3456,31 @@ function renderDailyRankPanel(){
     '</div>';
   }).join('');
 
-  const myRowExtra = (myRank && myRank > 20)
+  const myRowExtra = (myRank && myRank > 10)
     ? '<div class="lb-row me"><span class="lb-rank">#' + myRank + '</span><span class="lb-name">' + escapeHtml(playerName) + '</span><span class="lb-score">' + myEntry.points + '</span></div>'
     : '';
+
+  return '<div class="rank-board">' +
+    '<div class="rank-board-title">' + modeInfo.icon + ' Ranking ' + modeInfo.name + '</div>' +
+    '<div class="rank-countdown">\u23F1\uFE0F Encerra em ' + formatCountdown(cycleEndsAt - Date.now()) + ' (21h)</div>' +
+    '<div class="lb-list">' + (rowsHtml || '<div class="daily-milestone">Nenhuma pontuacao ainda hoje.</div>') + myRowExtra + '</div>' +
+    (myEntry ? '<div class="rank-my-stats"><span>Sua posicao: #' + (myRank||'-') + '</span><span>' + myEntry.points + ' pts</span></div>' : '') +
+  '</div>';
+}
+
+function renderDailyRankPanel(){
+  const el = document.getElementById('dailyRankPanel');
+  if(!el) return;
+
+  const hasPass = hasActiveDailyPass();
+  const titles = loadDailyTitles();
 
   const myTitlesHtml = titles.length
     ? '<div class="rank-titles">' + titles.slice(-6).map(function(t){
         const icon = t.badge==='campeao' ? '\u{1F3C6}' : (t.badge==='vice' ? '\u{1F948}' : '\u{1F949}');
         const label = t.badge==='campeao' ? 'Campeao' : (t.badge==='vice' ? 'Vice' : '3o lugar');
-        return '<span class="rank-title-badge">' + icon + ' ' + label + '</span>';
-      }).join('') + '</div>'
-    : '';
-
-  const historyHtml = history.length
-    ? '<div class="rank-history">' + history.map(function(h){
-        return '<div class="rank-history-row"><span>' + h.cycleDate + '</span><span>' + h.points + ' pts (' + h.matches + ' partidas)</span></div>';
+        const modeLabel = t.mode === 'pvp' ? 'PvP' : 'Sobrevivencia';
+        return '<span class="rank-title-badge">' + icon + ' ' + label + ' (' + modeLabel + ')</span>';
       }).join('') + '</div>'
     : '';
 
@@ -3159,30 +3489,20 @@ function renderDailyRankPanel(){
     : '<div class="rank-pass-row"><span class="daily-milestone">Sem passe hoje - compre na aba \u{1F6D2} Loja de Equipamentos</span></div>';
 
   el.innerHTML =
-    '<div class="daily-title">\u{1F3C6} Ranking Diario</div>' +
-    '<div class="rank-cat-tabs">' + tabsHtml + '</div>' +
-    '<div class="rank-countdown">\u23F1\uFE0F Ciclo encerra em ' + formatCountdown(cycleEndsAt - Date.now()) + ' (21h)</div>' +
+    '<div class="daily-title">\u{1F3C6} Rankings Diarios</div>' +
     myTitlesHtml +
     passRowHtml +
-    '<div class="lb-list">' + (rowsHtml || '<div class="daily-milestone">Nenhuma pontuacao ainda hoje.</div>') + myRowExtra + '</div>' +
-    (myEntry ? '<div class="rank-my-stats"><span>Sua posicao: #' + (myRank||'-') + '</span><span>' + myEntry.points + ' pts (' + myEntry.matches + ' partidas)</span></div>' : '') +
-    historyHtml;
-
-  el.querySelectorAll('.rank-cat-tab').forEach(function(tab){
-    tab.addEventListener('click', function(){ selectRankCategory(tab.getAttribute('data-cat')); });
-  });
+    renderRankBoardHtml('survival') +
+    renderRankBoardHtml('pvp');
 }
 
-// Atualiza so o cronometro a cada segundo (sem reconstruir o painel inteiro,
-// mais leve) enquanto o menu estiver aberto.
+// Atualiza os cronometros dos 2 boards a cada segundo enquanto o menu
+// estiver aberto (re-renderiza o painel inteiro - e leve o suficiente).
 setInterval(function(){
   const overlay = document.getElementById('overlay');
-  const countdownEl = document.querySelector('.rank-countdown');
-  if(!overlay || overlay.classList.contains('hidden') || !countdownEl) return;
-  const cat = RANK_CATEGORIES.find(function(c){ return c.id===selectedRankCategory; }) || RANK_CATEGORIES[0];
-  const data = loadDailyRank(cat.id);
-  const cycleEndsAt = getCycleEndTimestamp(data.cycleDate);
-  countdownEl.textContent = '\u23F1\uFE0F Ciclo encerra em ' + formatCountdown(cycleEndsAt - Date.now()) + ' (21h)';
+  if(!overlay || overlay.classList.contains('hidden')) return;
+  const panelVisible = document.getElementById('dailyRankPanel');
+  if(panelVisible) renderDailyRankPanel();
 }, 1000);
 
 function spawnSkeletonNear(m){
@@ -4437,16 +4757,14 @@ function renderEquipmentPanel(){
   const el = document.getElementById('equipmentPanel');
   if(!el) return;
 
-  const passesHtml = RANK_CATEGORIES.map(function(c){
-    const hasPass = hasActiveDailyPass(c.id);
-    const actionHtml = hasPass
-      ? '<span class="rank-pass-status">\u2705 Ativo hoje</span>'
-      : '<button class="daily-btn buy-pass-btn" data-cat="' + c.id + '">Comprar (R$' + (c.passBrlCents/100).toFixed(2) + ')</button>';
-    return '<div class="equip-item-row">' +
-      '<span class="equip-item-info"><b>' + c.name + '</b><br><small>Libera pontuar no Ranking Diario (PvP e Sobrevivencia) ate as 21h</small></span>' +
-      actionHtml +
+  const hasPass = hasActiveDailyPass();
+  const passHtml =
+    '<div class="equip-item-row">' +
+      '<span class="equip-item-info"><b>Passe Diario</b><br><small>Libera pontuar no Ranking Diario (PvP e Sobrevivencia) ate as 21h</small></span>' +
+      (hasPass
+        ? '<span class="rank-pass-status">\u2705 Ativo hoje</span>'
+        : '<button class="daily-btn buy-pass-btn">Comprar (R$' + (DAILY_PASS_PRICE_CENTS/100).toFixed(2) + ')</button>') +
     '</div>';
-  }).join('');
 
   const byChar = {};
   EQUIPMENT_ITEMS.forEach(function(it){ (byChar[it.character] = byChar[it.character]||[]).push(it); });
@@ -4475,9 +4793,9 @@ function renderEquipmentPanel(){
   }).join('');
 
   el.innerHTML =
-    '<div class="daily-title">\u{1F3AB} Passes do Ranking Diario</div>' +
-    '<div class="daily-milestone">Compre o passe da categoria e ja pode disputar o Ranking Diario no PvP e na Sobrevivencia ate o fechamento de hoje (21h).</div>' +
-    '<div class="equip-list">' + passesHtml + '</div>' +
+    '<div class="daily-title">\u{1F3AB} Passe Diario</div>' +
+    '<div class="daily-milestone">Compre e ja pode disputar o Ranking Diario no PvP e na Sobrevivencia ate o fechamento de hoje (21h).</div>' +
+    '<div class="equip-list">' + passHtml + '</div>' +
     '<div class="daily-title" style="margin-top:12px;">\u{1F6D2} Loja de Equipamentos</div>' +
     '<div class="daily-milestone">Sua carteira: <b>' + walletGold + ' \u{1FA99}</b> (ganhe jogando a Campanha)</div>' +
     '<div class="daily-milestone">Vale no PvP Local e na Sobrevivencia LIVRE (sem passe do dia). Nao vale no Modo Ranqueado.</div>' +
@@ -4485,7 +4803,7 @@ function renderEquipmentPanel(){
 
   el.querySelectorAll('.buy-pass-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
-      buyDailyPass(btn.getAttribute('data-cat'));
+      buyDailyPass();
       renderEquipmentPanel();
       renderDailyRankPanel();
       renderGameModesPanel();
@@ -5712,16 +6030,14 @@ function startPvpMatch(){
   // partida ranqueada = jogador tem passe ativo hoje na categoria selecionada.
   // Mesma regra da Sobrevivencia: ranqueado e 100% habilidade, itens pagos
   // ficam desligados (ver applyEquippedItemEffects abaixo).
-  pvpIsRanked = hasActiveDailyPass(selectedRankCategory);
+  pvpIsRanked = hasActiveDailyPass();
 
   runes = []; flames = []; particles = []; powerups = []; coinPickups = []; webs = [];
   door = null; boss = null; monsters = [];
 
-  if(pvpIsOnline){
-    startPvpMatchOnline();
-  } else {
-    startPvpMatchLocal();
-  }
+  // Sempre passa pela busca de 30s (mesmo sem nenhum servidor configurado) -
+  // se ninguem for encontrado, handleMatchmakingTimeout preenche com Bot.
+  startPvpMatchOnline();
 }
 
 // Modo local: 2 jogadores no mesmo aparelho (comportamento original, intacto).
@@ -5755,40 +6071,28 @@ function updateMatchmakingCountdownDisplay(){
   hudEls.monsterTag.textContent = '\u{1F50D} Procurando oponente... ' + Math.ceil(remaining/1000) + 's';
 }
 
-// 30s se passaram sem 'matchFound' - para a musica de matchmaking com fade e
-// mostra as opcoes (nao existe cobranca por partida hoje, entao nao ha
-// "devolucao de taxa": o passe do dia continua ativo do mesmo jeito).
+// 30s se passaram sem 'matchFound' - preenche automaticamente com um Bot e
+// inicia a partida, sem exigir nenhuma escolha manual (nao existe cobranca
+// por partida hoje, entao nao ha "devolucao de taxa": o passe do dia
+// continua ativo do mesmo jeito).
 function handleMatchmakingTimeout(){
   if(!pvpWaitingForOpponent) return; // ja achou partida nesse meio tempo
   clearMatchmakingTimers();
   pvpWaitingForOpponent = false;
-  fadeOutMatchmakingMusic(700, function(){ playMenuMusic(); });
-  showMatchmakingTimeoutModal();
+  fadeOutMatchmakingMusic(500);
+  startPvpMatchWithBot();
 }
 
-function showMatchmakingTimeoutModal(){
-  const overlay = document.getElementById('overlay');
-  overlay.classList.remove('hidden');
-  overlay.innerHTML =
-    '<h1>Nenhum oponente encontrado</h1>' +
-    '<p>Ninguem entrou na fila da sua categoria nos ultimos 30s. Seu passe do dia continua ativo normalmente.</p>' +
-    '<button id="mmRetryBtn">Tentar de novo</button>' +
-    '<button id="mmLocalBtn" style="margin-top:8px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Jogar PvP Local (2 no mesmo aparelho)</button>' +
-    '<button id="mmMenuBtn" style="margin-top:8px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
-  document.getElementById('mmRetryBtn').addEventListener('click', function(){
-    overlay.classList.add('hidden');
-    tryStartNewRun();
-  });
-  document.getElementById('mmLocalBtn').addEventListener('click', function(){
-    overlay.classList.add('hidden');
-    fadeOutMenuMusic(400);
-    gameMode = 'pvp';
-    pvpIsOnline = false;
-    startPvpMatchLocal();
-  });
-  document.getElementById('mmMenuBtn').addEventListener('click', function(){
-    location.reload();
-  });
+// Ninguem foi encontrado na busca de 30s: preenche a vaga com um Bot do
+// sistema e comeca a partida IMEDIATAMENTE - sem modal, sem exigir escolha
+// manual, pra garantir que a partida nunca fique travada esperando por sempre.
+function startPvpMatchWithBot(){
+  pvpIsOnline = false;
+  startPvpMatchLocal();
+  pvpP2.isBot = true;
+  pvpP2.nextDecision = 0;
+  pvpP2.dxDir = [0,0];
+  updatePvpHud();
 }
 
 // Modo online: conecta no servidor, entra na fila de pareamento e so comeca
@@ -5869,8 +6173,8 @@ function startPvpMatchOnline(){
     if(pvpWaitingForOpponent){
       clearMatchmakingTimers();
       pvpWaitingForOpponent = false;
-      fadeOutMatchmakingMusic(500, function(){ playMenuMusic(); });
-      showArenaResult('Conexao perdida', 'Nao foi possivel entrar na fila. Tente novamente.');
+      fadeOutMatchmakingMusic(500);
+      startPvpMatchWithBot();
       return;
     }
     if(gameState==='playing' && !pvpMatchOver){
@@ -5881,18 +6185,20 @@ function startPvpMatchOnline(){
     }
   });
 
-  NetworkManager.connect(getOrCreateNetworkPlayerId())
-    .then(function(){
-      NetworkManager.send('findMatch', {charIndex: selectedCharacterIndex});
-    })
-    .catch(function(err){
-      console.warn('[PvP Online] Falha ao conectar, voltando para o modo local:', err.message);
-      clearMatchmakingTimers();
-      stopMatchmakingMusicNow();
-      pvpIsOnline = false;
-      pvpWaitingForOpponent = false;
-      startPvpMatchLocal();
-    });
+  if(pvpIsOnline){
+    NetworkManager.connect(getOrCreateNetworkPlayerId())
+      .then(function(){
+        NetworkManager.send('findMatch', {charIndex: selectedCharacterIndex});
+      })
+      .catch(function(err){
+        console.warn('[PvP Online] Falha ao conectar - a busca continua normalmente ate o timeout:', err.message);
+        // NAO cai pro fallback na hora - deixa o cronometro de 30s (ja
+        // rodando desde o inicio desta funcao) decidir, pra sempre dar a
+        // mesma janela de espera antes de preencher com Bot.
+      });
+  }
+  // se pvpIsOnline for false (nenhum servidor configurado), nem tenta
+  // conectar - so deixa o cronometro de 30s correr e cair no Bot no final.
 }
 
 // Reaproveita o mesmo id estavel ja usado pelo sistema de Indique e Ganhe
@@ -5911,6 +6217,30 @@ function getOrCreateNetworkPlayerId(){
   }
 }
 
+// IA simples do bot de PvP (preenche a vaga quando ninguem e encontrado em
+// 30s) - mesmo padrao ja usado na Sobrevivencia: anda aleatoriamente por
+// celulas livres, e planta bomba com chance quando o oponente esta perto.
+function updatePvpBotAI(bot, dt, now){
+  if(!bot.alive) return;
+  if(now > bot.nextDecision){
+    bot.nextDecision = now + 500 + Math.random()*900;
+    const col = Math.floor(bot.x), row = Math.floor(bot.y);
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    const open = dirs.filter(function(d){
+      return !isSolidTile(col+d[0], row+d[1]) && !isRuneBlockingHero(col+d[0], row+d[1], bot.heroId);
+    });
+    bot.dxDir = open.length ? open[Math.floor(Math.random()*open.length)] : [0,0];
+
+    const nearEnemy = pvpP1.alive && Math.hypot(pvpP1.x-bot.x, pvpP1.y-bot.y) < 2.2;
+    if(nearEnemy && Math.random() < 0.5) heroPlaceBomb(bot, bot.heroId, [pvpP1, bot]);
+  }
+  bot.moving = (bot.dxDir[0]!==0 || bot.dxDir[1]!==0);
+  if(bot.dxDir[0]>0) bot.dir='right'; else if(bot.dxDir[0]<0) bot.dir='left';
+  else if(bot.dxDir[1]>0) bot.dir='down'; else if(bot.dxDir[1]<0) bot.dir='up';
+  heroTryMoveX(bot, bot.heroId, bot.dxDir[0], bot.speed, dt);
+  heroTryMoveY(bot, bot.heroId, bot.dxDir[1], bot.speed, dt);
+}
+
 function updatePvpMode(dt, now){
   if(pvpMatchOver) return;
   if(pvpWaitingForOpponent) return; // esperando o servidor parear com um oponente
@@ -5927,16 +6257,20 @@ function updatePvpMode(dt, now){
     if(pvpIsOnline) NetworkManager.sendMove(pvpP1.x, pvpP1.y, pvpP1.dir, pvpP1.moving);
   }
   if(!pvpIsOnline && pvpP2.alive){
-    // so processa teclado/toque do Jogador 2 no modo LOCAL - no modo online
-    // pvpP2 e atualizado pelos eventos 'remoteMove' vindos do servidor
-    let dx=0, dy=0;
-    if(keysP2.left) dx-=1; if(keysP2.right) dx+=1;
-    if(keysP2.up) dy-=1; if(keysP2.down) dy+=1;
-    pvpP2.moving = (dx!==0||dy!==0);
-    if(dx!==0 && dy!==0){ dx*=0.7071; dy*=0.7071; }
-    if(dx>0) pvpP2.dir='right'; else if(dx<0) pvpP2.dir='left'; else if(dy>0) pvpP2.dir='down'; else if(dy<0) pvpP2.dir='up';
-    heroTryMoveX(pvpP2,'p2',dx,pvpP2.speed,dt);
-    heroTryMoveY(pvpP2,'p2',dy,pvpP2.speed,dt);
+    if(pvpP2.isBot){
+      updatePvpBotAI(pvpP2, dt, now);
+    } else {
+      // so processa teclado/toque do Jogador 2 no modo LOCAL humano - no
+      // modo online pvpP2 e atualizado pelos eventos 'remoteMove' do servidor
+      let dx=0, dy=0;
+      if(keysP2.left) dx-=1; if(keysP2.right) dx+=1;
+      if(keysP2.up) dy-=1; if(keysP2.down) dy+=1;
+      pvpP2.moving = (dx!==0||dy!==0);
+      if(dx!==0 && dy!==0){ dx*=0.7071; dy*=0.7071; }
+      if(dx>0) pvpP2.dir='right'; else if(dx<0) pvpP2.dir='left'; else if(dy>0) pvpP2.dir='down'; else if(dy<0) pvpP2.dir='up';
+      heroTryMoveX(pvpP2,'p2',dx,pvpP2.speed,dt);
+      heroTryMoveY(pvpP2,'p2',dy,pvpP2.speed,dt);
+    }
   }
 
   updateRuneOccupancy({[pvpP1.heroId]:pvpP1, [pvpP2.heroId]:pvpP2});
@@ -5996,17 +6330,18 @@ function updatePvpMode(dt, now){
       // o Jogador 2 local e um convidado sem conta propria neste sistema.
       let placement;
       if(!pvpP1.alive && !pvpP2.alive) placement = null; // empate nao pontua
-      else if(pvpP1.alive) placement = 1; // venceu = mesma nota do 1o lugar da Sobrevivencia
-      else placement = 4; // perdeu = mesma nota do ultimo lugar da Sobrevivencia
-      if(placement) pointsEarned = awardDailyRankPoints(selectedRankCategory, placement);
+      else if(pvpP1.alive) placement = 1; // venceu = +5 pontos
+      else placement = 2; // perdeu = +2 pontos
+      if(placement) pointsEarned = awardDailyRankPoints('pvp', placement);
     }
 
     let text;
     if(!pvpP1.alive && !pvpP2.alive) text = 'Empate!';
-    else if(!pvpP1.alive) text = pvpIsOnline ? 'O oponente venceu!' : 'Jogador 2 venceu!';
-    else text = pvpIsOnline ? 'Voce venceu!' : 'Jogador 1 venceu!';
-    const subtitle = (pvpIsOnline ? 'Partida de PvP Online encerrada.' : 'Partida de PvP Local encerrada.') +
-      (pointsEarned > 0 ? ' +' + pointsEarned + ' pontos no Ranking Diario!' : '');
+    else if(!pvpP1.alive) text = pvpIsOnline ? 'O oponente venceu!' : (pvpP2.isBot ? 'O Bot venceu!' : 'Jogador 2 venceu!');
+    else text = pvpIsOnline ? 'Voce venceu!' : 'Voce venceu!';
+    const modeDesc = pvpIsOnline ? 'Partida de PvP Online' : (pvpP2.isBot ? 'Partida de PvP vs Bot' : 'Partida de PvP Local');
+    const subtitle = modeDesc + ' encerrada.' +
+      (pointsEarned > 0 ? ' Voce ganhou +' + pointsEarned + ' pontos no Ranking Diario!' : '');
     setTimeout(function(){ showArenaResult(text, subtitle); }, 450);
   }
   updatePvpHud();
@@ -6035,9 +6370,10 @@ function renderPvpMode(now){
 
 function updatePvpHud(){
   const elapsed = pvpCloseState ? Math.max(0, performance.now()-pvpCloseState.matchStartAt) : 0;
-  const modeLabel = pvpIsOnline ? 'PvP Online' : 'PvP Local';
+  const modeLabel = pvpIsOnline ? 'PvP Online' : (pvpP2.isBot ? 'PvP vs Bot' : 'PvP Local');
   hudEls.phaseTag.textContent = modeLabel + (pvpIsRanked?' (Ranqueada)':' (Livre)') + ' - ' + formatMMSS(elapsed);
-  hudEls.monsterTag.textContent = (pvpP1.alive?'\u{1F7E6} P1 vivo':'\u{1F7E6} P1 eliminado') + '   ' + (pvpP2.alive?'\u{1F7E7} P2 vivo':'\u{1F7E7} P2 eliminado');
+  const p2Label = pvpP2.isBot ? '\u{1F916} Bot' : '\u{1F7E7} P2';
+  hudEls.monsterTag.textContent = (pvpP1.alive?'\u{1F7E6} P1 vivo':'\u{1F7E6} P1 eliminado') + '   ' + (pvpP2.alive?(p2Label+' vivo'):(p2Label+' eliminado'));
   hudEls.hearts.innerHTML = '';
   hudEls.coinText.textContent = '-';
   hudEls.runeCountText.textContent = '-';
@@ -6194,7 +6530,7 @@ function startSurvivalMatch(){
   // partida ranqueada = jogador tem passe ativo hoje na categoria selecionada.
   // Regra do sistema de equipamentos: itens NAO valem em partidas ranqueadas
   // (o Modo Ranqueado precisa continuar 100% habilidade, sem vantagem paga).
-  survivalIsRanked = hasActiveDailyPass(selectedRankCategory);
+  survivalIsRanked = hasActiveDailyPass();
 
   survivalHeroes = spawns.map(function(sp, i){
     const h = makeArenaHero(sp.col, sp.row, selectedCharacterIndex+i);
@@ -6334,7 +6670,7 @@ function updateSurvivalMode(dt, now){
     const myPlacement = placements['player'];
     GamePixSDK.pingGameOver('survival', myPlacement ? (5 - myPlacement) : 0);
     if(myPlacement && survivalIsRanked){
-      pointsEarned = awardDailyRankPoints(selectedRankCategory, myPlacement);
+      pointsEarned = awardDailyRankPoints('survival', myPlacement);
     }
 
     let text;
@@ -6474,6 +6810,7 @@ player.colors = CHARACTERS[0];
 updateHUD();
 renderDailyPanel();
 updateCapeButton();
+renderProfilePanel();
 renderMatchPanel();
 renderGameModesPanel();
 renderDailyRankPanel();
