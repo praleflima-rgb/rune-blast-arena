@@ -99,19 +99,6 @@
      Visivel por padrao (nao tem classe "hidden" no HTML) - aparece
      via CSS puro, sem esperar nenhum script terminar de carregar.
      z-index maior que o overlay do menu, entao fica sempre por cima. */
-  #stageToast{
-    position:fixed;top:calc(14px + env(safe-area-inset-top));left:50%;
-    transform:translateX(-50%) translateY(-20px);
-    z-index:40;pointer-events:none;
-    background:rgba(20,12,28,.95);border:1px solid rgba(255,215,107,.5);
-    border-radius:12px;padding:10px 20px;text-align:center;
-    box-shadow:0 0 20px rgba(255,215,107,.25);
-    opacity:0;transition:opacity .3s, transform .3s;
-  }
-  #stageToast.show{ opacity:1;transform:translateX(-50%) translateY(0); }
-  #stageToast .toast-title{ color:var(--gold);font-weight:bold;font-size:14px; }
-  #stageToast .toast-coins{ color:#e9dcc4;font-size:12px;margin-top:2px; }
-
   #authModal{
     position:fixed;inset:0;z-index:999;
     background:rgba(6,3,10,.94);
@@ -501,8 +488,6 @@
 
 <div id="game-container">
   <canvas id="gameCanvas"></canvas>
-
-  <div id="stageToast"></div>
 
   <div id="hud">
     <div class="hud-col">
@@ -4571,21 +4556,6 @@ function updatePlayer(dt){
   player.y = Math.max(0.5, Math.min(ROWS-0.5, player.y));
 }
 
-let stageToastTimeoutId = null;
-// Aviso temporario e nao-bloqueante (a partida continua rolando por baixo) -
-// usado quando o Boss perde um estagio que NAO e o final (o final tem sua
-// propria tela completa, showSupremeVictory). Some sozinho depois de 3s.
-function showStageToast(title, coinsEarned){
-  const el = document.getElementById('stageToast');
-  if(!el) return;
-  el.innerHTML =
-    '<div class="toast-title">&#9876;&#65039; ' + escapeHtml(title) + '</div>' +
-    '<div class="toast-coins">+' + coinsEarned + ' &#129689; ganhas</div>';
-  el.classList.add('show');
-  if(stageToastTimeoutId) clearTimeout(stageToastTimeoutId);
-  stageToastTimeoutId = setTimeout(function(){ el.classList.remove('show'); }, 3000);
-}
-
 function damagePlayer(now){
   if(now < player.invulnUntil) return;
   player.lives -= 1;
@@ -4929,7 +4899,6 @@ function update(dt, now){
       } else {
         // Estagio 1 (5) ou Estagio 2 (10) -> avanca de fase
         AudioEngine.stageUp();
-        showStageToast('Estagio ' + (defeatedStage+1) + ' derrotado!', BOSS_COIN_BASE + defeatedStage*20);
         dropBossLoot(defeatedStage);
         const doorCells = openArenaCells(1);
         door = doorCells.length
