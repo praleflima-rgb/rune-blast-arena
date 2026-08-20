@@ -4585,7 +4585,8 @@ function showSupremeVictory(){
     '<p id="scoreRankText" style="font-size:12px;">Pontuacao da temporada: ' + score +
       (rank ? ' &mdash; sua posicao no ranking: #' + rank : '') + '</p>' +
     (usedDoubleCoinsThisMatch ? '' : '<button id="doubleCoinsBtn" class="ad-btn">&#127909; Dobrar Recompensas</button>') +
-    '<button id="restartBtn">Jogar Novamente</button>';
+    '<button id="restartBtn">Jogar Novamente</button>' +
+    '<button id="backToMenuBtn" style="margin-top:8px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
 
   const doubleBtn = document.getElementById('doubleCoinsBtn');
   if(doubleBtn){
@@ -4614,6 +4615,10 @@ function showSupremeVictory(){
   document.getElementById('restartBtn').addEventListener('click', function(){
     stopSupremeVictoryMusic();
     tryStartNewRun();
+  });
+  document.getElementById('backToMenuBtn').addEventListener('click', function(){
+    stopSupremeVictoryMusic();
+    location.reload();
   });
 }
 
@@ -4644,7 +4649,8 @@ function showGameOver(){
     '<p style="font-size:12px;">Pontuacao da temporada: ' + score +
       (rank ? ' &mdash; sua posicao no ranking: #' + rank : '') + '</p>' +
     reviveButtons +
-    '<button id="restartBtn2">Jogar Novamente</button>';
+    '<button id="restartBtn2">Jogar Novamente</button>' +
+    '<button id="backToMenuBtn2" style="margin-top:8px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
 
   const adBtn = document.getElementById('reviveAdBtn');
   if(adBtn){
@@ -4674,6 +4680,9 @@ function showGameOver(){
 
   document.getElementById('restartBtn2').addEventListener('click', function(){
     tryStartNewRun();
+  });
+  document.getElementById('backToMenuBtn2').addEventListener('click', function(){
+    location.reload();
   });
 }
 
@@ -6304,6 +6313,7 @@ function loop(ts){
    INICIALIZACAO
 ============================================================ */
 function bootGame(){
+document.getElementById('overlay').classList.remove('hidden');
 if(supabaseConfigured && currentUserId){
   const logoutBtnEl = document.getElementById('logoutBtn');
   if(logoutBtnEl){
