@@ -2911,8 +2911,8 @@ function showBuyPassRequiredScreen(){
   const overlay = document.getElementById('overlay');
   overlay.classList.remove('hidden');
   overlay.innerHTML =
-    '<h1>&#128274; Passe necessario</h1>' +
-    '<p>O modo ' + modeLabel + ' exige o Passe Diario (R$' + (DAILY_PASS_PRICE_CENTS/100).toFixed(2) + ') - vale para os dois modos ate as 21h.</p>' +
+    '<h1>&#128274; Passe Diario necessario</h1>' +
+    '<p>Passe Diario necessario para jogar os modos com ranking (' + modeLabel + '). Preco: R$' + (DAILY_PASS_PRICE_CENTS/100).toFixed(2) + ' - vale para os dois modos ate as 21h.</p>' +
     '<button id="buyPassNowBtn">Comprar Passe Agora</button>' +
     '<button id="backToMenuFromLockBtn" style="margin-top:8px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
   document.getElementById('buyPassNowBtn').addEventListener('click', function(){
@@ -3006,6 +3006,11 @@ function renderMatchPanel(){
 let selectedGameMode = null; // 'campaign' | 'survival' | 'pvp' - null = ainda nao escolhido
 
 function selectGameMode(mode){
+  if((mode === 'pvp' || mode === 'survival') && !hasActiveDailyPass()){
+    selectedGameMode = mode;
+    showBuyPassRequiredScreen();
+    return;
+  }
   selectedGameMode = mode;
   const p2Controls = document.getElementById('controlsP2');
   if(p2Controls) p2Controls.classList.toggle('hidden-mode', mode !== 'pvp' || NetworkManager.isEnabled());
@@ -3054,7 +3059,7 @@ function renderGameModesPanel(){
       const champion = m.rankMode ? champions[m.rankMode] : null;
       const coverStyle = m.cover ? ' style="background-image:linear-gradient(180deg,rgba(10,6,15,.15),rgba(10,6,15,.85)),url(\'' + m.cover + '\');background-size:cover;background-position:center 20%;"' : '';
       return '<div class="mode-card mode-card-big' + (sel?' selected':'') + (m.cover?' has-cover':'') + '" data-mode="' + m.id + '"' + coverStyle + '>' +
-        '<span class="mode-name">' + m.icon + ' ' + m.name + (m.demo ? ' <span class="mode-demo-tag">DEMO</span>' : '') + '<br><small>' + m.desc + (locked ? ' &mdash; \u{1F512} requer passe do dia' : '') + '</small>' +
+        '<span class="mode-name">' + m.icon + ' ' + m.name + (m.demo ? ' <span class="mode-demo-tag">DEMO</span>' : '') + '<br><small>' + m.desc + (locked ? ' &mdash; \u{1F512} Passe Diario necessario para jogar os modos com ranking' : '') + '</small>' +
         (champion ? '<br><small class="mode-champion-tag">\u{1F451} Ultimo Campeao: ' + escapeHtml(champion) + '</small>' : '') +
         '</span>' +
         (sel ? '<span class="mode-badge sel">SELECIONADO</span>' : (locked ? '<span class="mode-badge">\u{1F512} PASSE</span>' : '')) +
