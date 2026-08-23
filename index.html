@@ -6466,6 +6466,45 @@ function updatePvpHud(){
 
 // Desenha um heroi de arena (PvP/Sobrevivencia): usa a arte real se disponivel,
 // senao cai no desenho vetorial - mesmo padrao ja usado na campanha.
+// Resolve o nome pra mostrar acima da cabeca do heroi: apelido da conta
+// (se for o jogador logado), nome do bot (ja sorteado em assignBotIdentity),
+// ou "Jogador 2" para o convidado local do PvP (sem conta propria).
+function getHeroDisplayName(h){
+  if(h.heroId === 'player' || h.heroId === 'p1'){
+    return (supabaseConfigured && currentUserId && playerUsername) ? playerUsername : playerName;
+  }
+  if(h.isBot) return h.botName || 'Bot';
+  return 'Jogador 2';
+}
+
+// Desenha o nome do jogador/bot acima da cabeca do personagem, com um
+// fundo semi-transparente pra ficar legivel em qualquer cenario atras.
+function drawHeroNameplate(h, now){
+  const px = offsetX + h.x*tileSize;
+  const py = offsetY + h.y*tileSize - tileSize*0.74;
+  const name = getHeroDisplayName(h);
+  const fontSize = Math.max(9, tileSize*0.19);
+  ctx.save();
+  ctx.font = 'bold ' + fontSize + 'px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const textWidth = ctx.measureText(name).width;
+  const padX = 7, padY = 4;
+  const boxX = px - textWidth/2 - padX, boxY = py - fontSize/2 - padY;
+  const boxW = textWidth + padX*2, boxH = fontSize + padY*2;
+  ctx.fillStyle = 'rgba(6,3,10,.72)';
+  if(ctx.roundRect){
+    ctx.beginPath();
+    ctx.roundRect(boxX, boxY, boxW, boxH, 5);
+    ctx.fill();
+  } else {
+    ctx.fillRect(boxX, boxY, boxW, boxH);
+  }
+  ctx.fillStyle = h.isBot ? '#ffb454' : ((h.heroId==='player'||h.heroId==='p1') ? '#5ee6ff' : '#e9dcc4');
+  ctx.fillText(name, px, py);
+  ctx.restore();
+}
+
 function drawArenaHero(h, now){
   const invisAlpha = h.isInvisible ? 0.22 : 1;
   ctx.save();
@@ -6481,6 +6520,7 @@ function drawArenaHero(h, now){
       drawWizard(h, h.colors.robe, h.colors.robe2, h.colors.hat, true, now, h.colors.accent, 1);
     }
   }
+  if(h.alive) drawHeroNameplate(h, now);
   ctx.restore();
 }
 
@@ -6622,6 +6662,7 @@ function startSurvivalMatch(){
     h.heroId = i===0 ? 'player' : ('bot'+i);
     h.nextDecision = 0;
     h.dxDir = [0,0];
+    if(h.isBot) assignBotIdentity(h);
     if(i===0) applyEquippedItemEffects(h, !survivalIsRanked); // so o humano pode ter itens; bots nunca
     return h;
   });
