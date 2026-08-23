@@ -5950,79 +5950,135 @@ function render(now){
 ============================================================ */
 let gameMode = 'campaign'; // 'campaign' | 'survival' | 'pvp' - modo da PARTIDA ATUAL em andamento
 /* ============================================================
-   REDE (WEBSOCKETS) - camada de sincronizacao para PvP Online
-   ------------------------------------------------------------
-   IMPORTANTE: isto e a camada de CLIENTE, pronta para conversar
-   com um servidor real (ver server-reference/server.js). Sem um
-   servidor configurado em ONLINE_SERVER_URL, o jogo cai
-   automaticamente no modo local (2 jogadores no mesmo aparelho,
-   como ja funcionava) - nada quebra se voce nao hospedar nada.
+   REDE (SUPABASE REALTIME) - camada de sincronizacao para PvP
+   Online, sem servidor proprio. Usa a tabela pvp_queue + a funcao
+   try_match_pvp (banco) para parear 2 jogadores reais, e um canal
+   de Broadcast do Realtime pra sincronizar a partida ao vivo. So
+   funciona com o jogador logado numa conta - sem conta/Supabase
+   configurado, o jogo cai automaticamente no modo local/bot, como
+   ja acontecia antes.
 ============================================================ */
-const ONLINE_SERVER_URL = ''; // ex: 'wss://seu-servidor.exemplo.com' - vazio = modo local
-
 const NetworkManager = (function(){
-  let socket = null;
   let connected = false;
-  let roomId = null;
   const handlers = {};
   let lastMoveSentAt = 0;
   const MOVE_SEND_INTERVAL_MS = 70; // ~14 atualizacoes/seg - fluido sem sobrecarregar a rede
 
-  function isEnabled(){ return !!ONLINE_SERVER_URL; }
+  let waitSubA = null, waitSubB = null; // escuta passiva (alguem me achou na fila)
+  let pollIntervalId = null;             // busca ativa (eu acho alguem na fila)
+  let broadcastChannel = null;           // canal ao vivo da partida, depois de pareado
+  let myMatchId = null;
+
+  // matchmaking real via Supabase Realtime (tabela pvp_queue + funcao
+  // try_match_pvp) - so funciona com o jogador logado numa conta.
+  function isEnabled(){ return !!supabaseConfigured; }
   function isConnected(){ return connected; }
 
   function on(event, cb){ handlers[event] = cb; }
   function emit(event, data){ if(handlers[event]) handlers[event](data); }
 
-  // playerId: identificador estavel do jogador (reaproveitamos o myUserId
-  // que o sistema de Indique e Ganhe ja gera e guarda no localStorage - assim
-  // o mesmo "login" vale pro convite E pro multiplayer, sem duplicar conceito).
   function connect(playerId){
     return new Promise(function(resolve, reject){
-      if(!isEnabled()){ reject(new Error('ONLINE_SERVER_URL nao configurado (modo local ativo)')); return; }
-      try{
-        socket = new WebSocket(ONLINE_SERVER_URL);
-      } catch(err){ reject(err); return; }
-
-      const connectTimeout = setTimeout(function(){
-        if(!connected){ try{ socket.close(); }catch(e){} reject(new Error('timeout ao conectar')); }
-      }, 6000);
-
-      socket.onopen = function(){
-        connected = true;
-        clearTimeout(connectTimeout);
-        // "multilogin": manda o playerId estavel - o servidor decide o que
-        // fazer se esse mesmo id ja tiver uma sessao ativa em outro aparelho
-        // (ver server-reference/server.js - por padrao, derruba a sessao
-        // antiga e avisa o cliente antigo via evento 'sessionReplaced').
-        socket.send(JSON.stringify({type:'join', playerId: playerId}));
-        resolve();
-      };
-      socket.onerror = function(){ clearTimeout(connectTimeout); reject(new Error('erro de conexao com o servidor')); };
-      socket.onclose = function(){
-        connected = false;
-        emit('disconnected');
-      };
-      socket.onmessage = function(msg){
-        let data;
-        try{ data = JSON.parse(msg.data); } catch(e){ return; }
-        if(data.type === 'matchFound') roomId = data.roomId;
-        emit(data.type, data);
-      };
+      if(!isEnabled() || !currentUserId){ reject(new Error('Supabase nao configurado ou jogador nao logado')); return; }
+      connected = true;
+      resolve();
     });
   }
 
+  function cleanupMatchmakingListeners(){
+    if(pollIntervalId){ clearInterval(pollIntervalId); pollIntervalId = null; }
+    if(waitSubA){ supabaseClient.removeChannel(waitSubA); waitSubA = null; }
+    if(waitSubB){ supabaseClient.removeChannel(waitSubB); waitSubB = null; }
+  }
+
+  // Sai da fila de espera (chamado no timeout de 30s, ou se o jogador
+  // desistir/sair) - evita que alguem pareie com um jogador que ja desistiu.
+  function cancelSearch(){
+    cleanupMatchmakingListeners();
+    if(currentUserId) supabaseClient.from('pvp_queue').delete().eq('user_id', currentUserId).then(function(){});
+  }
+
+  function normalizeMatchRow(row, iAmPlayer1){
+    return {
+      matchId: row.id, seed: row.seed, iAmPlayer1: iAmPlayer1,
+      opponentUsername: iAmPlayer1 ? row.player2_username : row.player1_username,
+      opponentCharIndex: iAmPlayer1 ? row.player2_char : row.player1_char
+    };
+  }
+
+  function handleMatched(norm){
+    cleanupMatchmakingListeners();
+    myMatchId = norm.matchId;
+
+    // canal de transmissao ao vivo (Realtime Broadcast) - e por aqui que
+    // movimento/bombas sao trocados durante a partida, em tempo real.
+    broadcastChannel = supabaseClient.channel('match-' + norm.matchId)
+      .on('broadcast', {event:'move'}, function(msg){ emit('remoteMove', msg.payload); })
+      .on('broadcast', {event:'bombPlace'}, function(msg){ emit('remoteBombPlace', msg.payload); })
+      .on('broadcast', {event:'bombExplode'}, function(msg){ emit('remoteBombExplode', msg.payload); })
+      .on('broadcast', {event:'left'}, function(msg){ emit('playerLeft', msg.payload); })
+      .subscribe();
+
+    emit('matchFound', {
+      you: norm.iAmPlayer1 ? 'p1' : 'p2',
+      seed: norm.seed,
+      opponentCharIndex: norm.opponentCharIndex,
+      matchStartAt: performance.now()
+    });
+  }
+
+  // Chamada UMA vez, ao comecar a procurar (send('findMatch',...) abaixo).
+  // Dois mecanismos rodando juntos:
+  //  1) ESCUTA PASSIVA: se ALGUEM ME ACHAR na fila, sou avisado na hora via
+  //     Realtime (postgres_changes), sem precisar ficar perguntando.
+  //  2) BUSCA ATIVA: a cada poucos segundos, EU tento achar alguem
+  //     esperando (funcao try_match_pvp) - assim os dois lados do
+  //     pareamento acontecem, nao so um.
+  function findMatch(charIndex){
+    const myId = currentUserId;
+    const myUsername = playerUsername || playerName;
+
+    waitSubA = supabaseClient
+      .channel('pvp-wait-p1-' + myId)
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'pvp_matches', filter:'player1_id=eq.'+myId },
+        function(payload){ handleMatched(normalizeMatchRow(payload.new, true)); })
+      .subscribe();
+    waitSubB = supabaseClient
+      .channel('pvp-wait-p2-' + myId)
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'pvp_matches', filter:'player2_id=eq.'+myId },
+        function(payload){ handleMatched(normalizeMatchRow(payload.new, false)); })
+      .subscribe();
+
+    function attempt(){
+      supabaseClient.rpc('try_match_pvp', { p_username: myUsername, p_char_index: charIndex }).then(function(res){
+        const row = res.data && res.data[0];
+        if(row && row.match_id){
+          handleMatched({
+            matchId: row.match_id, seed: row.seed, iAmPlayer1: row.i_am_player1,
+            opponentUsername: row.opponent_username, opponentCharIndex: row.opponent_char
+          });
+        }
+      }).catch(function(err){ console.warn('[Matchmaking] tentativa falhou:', err.message); });
+    }
+    attempt(); // tenta na hora, nao espera o primeiro intervalo
+    pollIntervalId = setInterval(attempt, 2500);
+  }
+
   function disconnect(){
-    if(socket){ try{ socket.close(); }catch(e){} socket=null; }
-    connected = false; roomId = null;
+    cleanupMatchmakingListeners();
+    if(broadcastChannel){
+      try{ broadcastChannel.send({type:'broadcast', event:'left', payload:{}}); }catch(e){}
+      supabaseClient.removeChannel(broadcastChannel);
+      broadcastChannel = null;
+    }
+    connected = false; myMatchId = null;
   }
 
   function send(type, payload){
-    if(!connected || !socket) return;
     payload = payload || {};
-    payload.type = type;
-    payload.roomId = roomId;
-    socket.send(JSON.stringify(payload));
+    if(type === 'findMatch'){ findMatch(payload.charIndex||0); return; }
+    if(!broadcastChannel) return;
+    broadcastChannel.send({ type:'broadcast', event: type, payload: payload });
   }
 
   // Posicao/estado do heroi local - limitado a MOVE_SEND_INTERVAL_MS para nao
@@ -6041,7 +6097,8 @@ const NetworkManager = (function(){
 
   return {
     isEnabled: isEnabled, isConnected: isConnected,
-    connect: connect, disconnect: disconnect, on: on,
+    connect: connect, disconnect: disconnect, on: on, send: send,
+    cancelSearch: cancelSearch,
     sendMove: sendMove, sendBombPlace: sendBombPlace,
     sendBombExplode: sendBombExplode, sendRingClose: sendRingClose
   };
@@ -6103,7 +6160,7 @@ function clearMatchmakingTimers(){
 function updateMatchmakingCountdownDisplay(){
   if(!pvpWaitingForOpponent) return;
   const remaining = Math.max(0, matchmakingDeadline - performance.now());
-  hudEls.monsterTag.textContent = '\u{1F50D} Procurando oponente... ' + Math.ceil(remaining/1000) + 's';
+  hudEls.monsterTag.textContent = '\u{1F50D} Procurando jogador on-line... ' + Math.ceil(remaining/1000) + 's';
 }
 
 // 30s se passaram sem 'matchFound' - preenche automaticamente com um Bot e
@@ -6114,6 +6171,7 @@ function handleMatchmakingTimeout(){
   if(!pvpWaitingForOpponent) return; // ja achou partida nesse meio tempo
   clearMatchmakingTimers();
   pvpWaitingForOpponent = false;
+  NetworkManager.cancelSearch();
   fadeOutMatchmakingMusic(500);
   startPvpMatchWithBot();
 }
@@ -6142,7 +6200,7 @@ function startPvpMatchOnline(){
   pvpWaitingForOpponent = true;
   gameState = 'playing';
   hudEls.phaseTag.textContent = 'PvP Online';
-  hudEls.monsterTag.textContent = '\u{1F50D} Procurando oponente... 30s';
+  hudEls.monsterTag.textContent = '\u{1F50D} Procurando jogador on-line... 30s';
 
   playMatchmakingMusic();
   matchmakingDeadline = performance.now() + MATCHMAKING_TIMEOUT_MS;
@@ -6481,7 +6539,7 @@ function getHeroDisplayName(h){
 // fundo semi-transparente pra ficar legivel em qualquer cenario atras.
 function drawHeroNameplate(h, now){
   const px = offsetX + h.x*tileSize;
-  const py = offsetY + h.y*tileSize - tileSize*0.74;
+  const py = offsetY + h.y*tileSize - tileSize*0.98;
   const name = getHeroDisplayName(h);
   const fontSize = Math.max(9, tileSize*0.19);
   ctx.save();
