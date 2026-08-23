@@ -585,10 +585,12 @@
       <div class="dbtn p2" id="btn-right-p2">&#9654;</div>
     </div>
     <button id="runeBtnP2" class="p2"><span class="sym">&#10022;</span><span>RUNA</span></button>
-  <div id="authOverlay" class="hidden">
+  </div>
+
+  <div id="authOverlay">
     <div class="auth-card">
       <h2>Rune Blast Arena</h2>
-      <p class="auth-sub">Entre ou crie sua conta para salvar seu progresso, VIP e passes.</p>
+      <p class="auth-sub">Faça login ou crie sua conta para salvar seu progresso e entrar na arena.</p>
       
       <div class="auth-group">
         <label for="authEmail">E-mail</label>
@@ -597,7 +599,7 @@
 
       <div class="auth-group">
         <label for="authPassword">Senha</label>
-        <input type="password" id="authPassword" placeholder="Minimo 6 caracteres" autocomplete="current-password">
+        <input type="password" id="authPassword" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
       </div>
 
       <div class="auth-btn-row">
@@ -795,11 +797,6 @@ function setAuthBotoesDesabilitados(desabilitado){
 }
 
 async function authFazerLogin(){
-  if(!supabaseConfigured || !supabaseClient){
-    hideAuthOverlay();
-    bootGame();
-    return;
-  }
   const emailInput = document.getElementById('authEmail');
   const passInput = document.getElementById('authPassword');
   const email = (emailInput ? emailInput.value : '').trim();
@@ -809,34 +806,46 @@ async function authFazerLogin(){
     exibirAuthMsg('Preencha todos os campos!', true);
     return;
   }
+  if(password.length < 6){
+    exibirAuthMsg('A senha precisa ter pelo menos 6 caracteres.', true);
+    return;
+  }
 
   setAuthBotoesDesabilitados(true);
   exibirAuthMsg('Validando...');
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  setAuthBotoesDesabilitados(false);
+  if(supabaseConfigured && supabaseClient){
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    setAuthBotoesDesabilitados(false);
 
-  if(error){
-    exibirAuthMsg('E-mail ou senha incorretos!', true);
-    return;
-  }
+    if(error){
+      exibirAuthMsg('E-mail ou senha incorretos!', true);
+      return;
+    }
 
-  exibirAuthMsg('Login realizado com sucesso! Entrando...', false);
-  if(data && data.session){
-    await loadProfileFromSupabase(data.session.user.id);
+    exibirAuthMsg('Login realizado com sucesso! Entrando...', false);
+    if(data && data.session){
+      await loadProfileFromSupabase(data.session.user.id);
+    }
+    setTimeout(function(){
+      hideAuthOverlay();
+      bootGame();
+    }, 400);
+  } else {
+    setTimeout(function(){
+      setAuthBotoesDesabilitados(false);
+      localStorage.setItem('rba_auth_session', JSON.stringify({ email: email, loggedInAt: Date.now() }));
+      currentUserId = 'local_' + email;
+      exibirAuthMsg('Login realizado com sucesso! Entrando...', false);
+      setTimeout(function(){
+        hideAuthOverlay();
+        bootGame();
+      }, 400);
+    }, 300);
   }
-  setTimeout(function(){
-    hideAuthOverlay();
-    bootGame();
-  }, 400);
 }
 
 async function authRegistrar(){
-  if(!supabaseConfigured || !supabaseClient){
-    hideAuthOverlay();
-    bootGame();
-    return;
-  }
   const emailInput = document.getElementById('authEmail');
   const passInput = document.getElementById('authPassword');
   const email = (emailInput ? emailInput.value : '').trim();
@@ -854,28 +863,42 @@ async function authRegistrar(){
   setAuthBotoesDesabilitados(true);
   exibirAuthMsg('Criando conta...');
 
-  const { data, error } = await supabaseClient.auth.signUp({ email, password });
-  setAuthBotoesDesabilitados(false);
+  if(supabaseConfigured && supabaseClient){
+    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+    setAuthBotoesDesabilitados(false);
 
-  if(error){
-    exibirAuthMsg('Erro ao criar conta: ' + error.message, true);
-    return;
-  }
+    if(error){
+      exibirAuthMsg('Erro ao criar conta: ' + error.message, true);
+      return;
+    }
 
-  if(data && data.session){
-    exibirAuthMsg('Conta criada com sucesso! Entrando...', false);
-    await loadProfileFromSupabase(data.session.user.id);
-    setTimeout(function(){
-      hideAuthOverlay();
-      bootGame();
-    }, 500);
+    if(data && data.session){
+      exibirAuthMsg('Conta criada com sucesso! Entrando...', false);
+      await loadProfileFromSupabase(data.session.user.id);
+      setTimeout(function(){
+        hideAuthOverlay();
+        bootGame();
+      }, 500);
+    } else {
+      exibirAuthMsg('Conta criada! Verifique seu e-mail para confirmar antes de entrar.', false);
+    }
   } else {
-    exibirAuthMsg('Conta criada! Verifique seu e-mail para confirmar antes de entrar.', false);
+    setTimeout(function(){
+      setAuthBotoesDesabilitados(false);
+      localStorage.setItem('rba_auth_session', JSON.stringify({ email: email, registeredAt: Date.now() }));
+      currentUserId = 'local_' + email;
+      exibirAuthMsg('Conta criada com sucesso! Entrando...', false);
+      setTimeout(function(){
+        hideAuthOverlay();
+        bootGame();
+      }, 500);
+    }, 300);
   }
 }
 
 function authJogarComoConvidado(){
-  currentUserId = null;
+  currentUserId = 'guest';
+  localStorage.setItem('rba_auth_session', JSON.stringify({ email: 'convidado', isGuest: true }));
   hideAuthOverlay();
   bootGame();
 }
@@ -903,22 +926,35 @@ function setupAuthEventListeners(){
 async function checkAuthAndBoot(){
   setupAuthEventListeners();
 
-  if(!supabaseConfigured){
-    console.warn('[Supabase] chave anon nao configurada ainda - jogo rodando no modo Convidado/localStorage.');
-    hideAuthOverlay();
-    bootGame();
-    return;
+  if(supabaseConfigured && supabaseClient){
+    try {
+      const { data } = await supabaseClient.auth.getSession();
+      if(data && data.session){
+        await loadProfileFromSupabase(data.session.user.id);
+        hideAuthOverlay();
+        bootGame();
+        return;
+      }
+    } catch(err){
+      console.warn('[Supabase] Erro ao checar sessao:', err);
+    }
+  } else {
+    try {
+      const rawSession = localStorage.getItem('rba_auth_session');
+      if(rawSession){
+        const sess = JSON.parse(rawSession);
+        if(sess && sess.email){
+          currentUserId = sess.isGuest ? 'guest' : 'local_' + sess.email;
+          hideAuthOverlay();
+          bootGame();
+          return;
+        }
+      }
+    } catch(e){}
   }
 
-  const { data } = await supabaseClient.auth.getSession();
-  if(!data || !data.session){
-    showAuthOverlay();
-    return;
-  }
-
-  await loadProfileFromSupabase(data.session.user.id);
-  hideAuthOverlay();
-  bootGame();
+  // Se nao ha sessao ativa, mantem/exibe a tela de login e NAO inicia o jogo!
+  showAuthOverlay();
 }
 
 /* ============================================================
@@ -6416,13 +6452,14 @@ let logoutListenerAttached = false;
 function bootGame(){
   const logoutBtnEl = document.getElementById('logoutBtn');
   if(logoutBtnEl){
-    logoutBtnEl.style.display = (supabaseConfigured && currentUserId) ? 'flex' : 'none';
+    logoutBtnEl.style.display = currentUserId ? 'flex' : 'none';
     if(!logoutListenerAttached){
       logoutListenerAttached = true;
       logoutBtnEl.addEventListener('click', async function(){
         if(supabaseClient){
           try{ await supabaseClient.auth.signOut(); }catch(e){}
         }
+        try{ localStorage.removeItem('rba_auth_session'); }catch(e){}
         currentUserId = null;
         logoutBtnEl.style.display = 'none';
         showAuthOverlay();
