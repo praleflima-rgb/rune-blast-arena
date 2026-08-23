@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rune Blast Arena - Login / Registro</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body {
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: #1e293b;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      width: 100%;
+      max-width: 380px;
+      border: 1px solid #334155;
+    }
+    h2 { text-align: center; color: #38bdf8; margin-top: 0; }
+    .input-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-size: 14px; color: #94a3b8; }
+    input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #fff;
+      font-size: 15px;
+    }
+    input:focus { outline: none; border-color: #38bdf8; }
+    .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+    button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #0284c7; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #0369a1; }
+    .btn-secondary { background: #334155; color: #fff; }
+    .btn-secondary:hover:not(:disabled) { background: #475569; }
+    #msg { margin-top: 15px; text-align: center; font-size: 14px; min-height: 20px; }
+    .success { color: #4ade80; }
+    .error { color: #f87171; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>Rune Blast Arena</h2>
+
+    <div class="input-group">
+      <label>E-mail</label>
+      <input type="email" id="email" placeholder="seuemail@exemplo.com" autocomplete="email">
+    </div>
+
+    <div class="input-group">
+      <label>Senha</label>
+      <input type="password" id="password" placeholder="Minimo 6 caracteres" autocomplete="current-password">
+    </div>
+
+    <div class="btn-group">
+      <button class="btn-primary" id="loginBtn">Entrar</button>
+      <button class="btn-secondary" id="registerBtn">Criar Conta</button>
+    </div>
+
+    <div id="msg"></div>
+  </div>
+
+  <script>
+    /* ============================================================
+       CONFIGURACAO DO SUPABASE
+       IMPORTANTE: a SUPABASE_KEY abaixo e a chave "anon/public" - ela
+       FICA VISIVEL no codigo-fonte da pagina para qualquer pessoa, isso
+       e esperado e normal (e assim que o Supabase funciona no navegador).
+       A seguranca de verdade vem de duas coisas, as DUAS obrigatorias:
+         1) Nunca usar senha em texto puro numa tabela propria (por isso
+            usamos supabase.auth.* abaixo, que faz o hash da senha no
+            servidor do Supabase - a senha em si nunca trafega nem fica
+            guardada em lugar nenhum que a gente controle).
+         2) Ativar Row Level Security (RLS) nas tabelas do jogo, para que
+            a chave anon so consiga ler/escrever os dados do PROPRIO
+            usuario logado, nunca de outros jogadores. Ver o arquivo
+            schema.sql que acompanha este projeto.
+    ============================================================ */
+    const SUPABASE_URL = 'https://yssdwwfqdendmfknbsgx.supabase.co';
+    const SUPABASE_KEY = 'COLE_AQUI_A_SUA_CHAVE_ANON_PUBLIC';
+
+    // Depois de trocar para runeblast.html, a MESMA sessao criada aqui e
+    // reconhecida automaticamente la (o supabase-js guarda a sessao no
+    // localStorage do navegador por padrao) - nao precisa passar nada
+    // manualmente entre as duas paginas.
+    const GAME_PAGE_URL = 'runeblast.html';
+
+    // nome diferente de "supabase" para nao colidir com a biblioteca global
+    // que o script do CDN acima ja criou (window.supabase)
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const msgDiv = document.getElementById('msg');
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
+
+    function exibirMensagem(texto, ehErro){
+      msgDiv.className = ehErro ? 'error' : 'success';
+      msgDiv.innerText = texto;
+    }
+
+    function setBotoesDesabilitados(desabilitado){
+      loginBtn.disabled = desabilitado;
+      registerBtn.disabled = desabilitado;
+    }
+
+    // Se ja existe uma sessao valida (usuario nao deslogou), pula direto
+    // pro jogo em vez de mostrar o formulario de novo.
+    (async function checarSessaoExistente(){
+      const { data } = await supabaseClient.auth.getSession();
+      if(data && data.session){
+        window.location.href = GAME_PAGE_URL;
+      }
+    })();
+
+    async function registrar(){
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      if(!email || !password){
+        exibirMensagem('Preencha todos os campos!', true);
+        return;
+      }
+      if(password.length < 6){
+        exibirMensagem('A senha precisa ter pelo menos 6 caracteres.', true);
+        return;
+      }
+
+      setBotoesDesabilitados(true);
+      exibirMensagem('Criando conta...');
+
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+
+      setBotoesDesabilitados(false);
+
+      if(error){
+        exibirMensagem('Erro ao criar conta: ' + error.message, true);
+        return;
+      }
+
+      // se a confirmacao por e-mail estiver ativa no projeto, data.session
+      // vem vazio ate o usuario clicar no link do e-mail
+      if(data.session){
+        exibirMensagem('Conta criada! Entrando...');
+        setTimeout(function(){ window.location.href = GAME_PAGE_URL; }, 600);
+      } else {
+        exibirMensagem('Conta criada! Verifique seu e-mail para confirmar antes de entrar.');
+      }
+    }
+
+    async function fazerLogin(){
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      if(!email || !password){
+        exibirMensagem('Preencha todos os campos!', true);
+        return;
+      }
+
+      setBotoesDesabilitados(true);
+      exibirMensagem('Validando...');
+
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+      setBotoesDesabilitados(false);
+
+      if(error){
+        exibirMensagem('E-mail ou senha incorretos!', true);
+        return;
+      }
+
+      exibirMensagem('Login bem-sucedido! Entrando...');
+      setTimeout(function(){ window.location.href = GAME_PAGE_URL; }, 400);
+    }
+
+    loginBtn.addEventListener('click', fazerLogin);
+    registerBtn.addEventListener('click', registrar);
+    document.getElementById('password').addEventListener('keydown', function(e){
+      if(e.key === 'Enter') fazerLogin();
+    });
+  </script>
+</body>
+</html>
