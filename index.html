@@ -1,196 +1,4 @@
-isBot: true,
-            reactionDelay: Math.floor(Math.random() * 200) + 150,
-            accuracy: 0.8,
-            score: 0
-        };
-    }
-
-    // 6. EXECUÇÃO DA PARTIDA, PREMIAÇÃO E REEMBOLSO
-    function runMatchSimulation(players, realPlayersCount) {
-        logStatus(`Partida iniciada! Jogadores Reais: ${realPlayersCount} | Bots: ${players.length - realPlayersCount}`);
-        document.getElementById("gameCanvas").innerText = "🎮 Partida em andamento...";
-
-        setTimeout(() => {
-            players.forEach(p => {
-                p.score = p.isBot ? Math.floor(Math.random() * 50) : Math.floor(Math.random() * 80) + 20;
-            });
-
-            players.sort((a,b) => b.score - a.score);
-            const winner = players[0];
-
-            document.getElementById("gameCanvas").innerText =lor: var(--accent-hover); }
-    .btn:disable
-
-            // REGRAS DE PREMIAÇÃO E REEMBOLSO
-            if (realPlayersCount >= 2) {
-                logStatus(`🏆 Partida Válida! Prêmio acumulado enviado ao vencedor real. Taxa enviada para a carteira da plataforma.`);
-            } else {
-                logStatus(`⚠️ Apenas 1 jogador real na partida. REGRA DE REEMBOLSO ATIVADA! Reembolso de R$ 5 em POL agendado/processado.`);
-            }
-
-            // FILTRO DO RANKING (Somente Players Reais)
-            updateLeaderboard(players);
-
-        }, 4000);
-    }
-
-    // 7. RANKING E LEADERBOARD (IGNORA BOTS)
-    function updateLeaderboard(matchPlayers) {
-        matchPlayers.forEach(p => {
-            if (p.isBot) return; // IGNORA BOTS NO RANKING
-
-            const existing = leaderboardData.find(item => item.address === p.address);
-            if (existing) {
-                existing.score += p.score;
-            } else {
-                leaderboardData.push({ address: p.address, score: p.score });
-            }
-        });
-
-        leaderboardData.sort((a,b) => b.score - a.score);
-        renderLeaderboard();
-    }
-
-    function renderLeaderboard() {
-        const tbody = document.getElementById("leaderboardBody");
-        tbody.innerHTML = "";
-
-        if (leaderboardData.length === 0) {
-            tbody.innerHTML =617;
-        border: 2px solid #334155;
-        border-radius: 8px;
-        width: 100%;
-        
-            return;
-        }
-
-        leaderboardData.forEach(p => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td> {p.address.slice(-4)}</td>
-                <td><strong>${p.score} pts</strong></td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-
-    function logStatus(msg) {
-        const statusBox = document.getElementById("statusLog");
-        statusBox.innerText =n-bottom: 20px;
-        padding-bottom: 15px;
- 
-        console.log(msg);
-    }
-</script>BrowserProvider(window.ethereum);
-            signer = await provider.getSigner();
-            userAddress = await signer.getAddress();
-
-            const network = await provider.getNetwork();
-            // Polygon ChainId: 137
-            if (network.chainId !== 137n) {
-                alert("Atenção: Por favor, mude a rede da sua carteira para Polygon Mainnet.");
-            }
-
-            document.getElementById("connectBtn").innerText = `${userAddress.substring(0,6)}...${userAddress.slice(-4)}`;
-            document.getElementById("vipBtn").disabled = false;
-            document.getElementById("arenaBtn").disabled = false;
-            isWalletConnected = true;
-
-            logStatus(`Carteira conectada: ${userAddress}`);
-            document.getElementById("gameCanvas").innerText = "Pronto para iniciar a busca por partidas!";
-        } catch (err) {
-            console.error(err);
-            logStatus("Erro ao conectar carteira: " + err.message);
-        }
-    }
-
-    // 2. BUSCA COTAÇÃO DA POL (BRL -> POL)
-    async function getPOLAmountFromBRL(brlValue) {
-        try {
-            const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=matic-network&vs_currencies=brl");
-            const data = await res.json();
-            const priceBRL = data["matic-network"].brl;
-            const polNeeded = brlValue / priceBRL;
-            return ethers.parseEther(polNeeded.toFixed(18).toString());
-        } catch (e) {
-            logStatus("Erro ao cotar POL/BRL. Usando taxa fallback.");
-            return ethers.parseEther((brlValue / 2.5).toString());
-        }
-    }
-
-    // 3. COMPRA DO PASSE VIP (R$ 15 em POL)
-    async function buyVIPPass() {
-        if (!isWalletConnected) return;
-        try {
-            logStatus("Calculando valor do Passe VIP (R$ 15 em POL)...");
-            const valueWei = await getPOLAmountFromBRL(15);
-
-            logStatus("Aguardando confirmação na carteira...");
-            const tx = await signer.sendTransaction({
-                to: RECEIVER_WALLET,
-                value: valueWei
-            });
-
-            logStatus(`Transação enviada! Hash: ${tx.hash}`);
-            await tx.wait();
-            logStatus("✅ Passe VIP ativado com sucesso!");
-            alert("Passe VIP ativado!");
-        } catch (err) {
-            logStatus("Erro no pagamento do Passe VIP: " + err.message);
-        }
-    }
-
-    // 4. ENTRADA NA ARENA / QUEUE (R$ 5 em POL)
-    async function enterArenaQueue() {
-        if (!isWalletConnected) return;
-        try {
-            logStatus("Calculando taxa da Arena (R$ 5 em POL)...");
-            const valueWei = await getPOLAmountFromBRL(5);
-
-            logStatus("Confirmando taxa de entrada na carteira...");
-            const tx = await signer.sendTransaction({
-                to: RECEIVER_WALLET,
-                value: valueWei
-            });
-
-            logStatus(`Transação de entrada confirmada! Hash: ${tx.hash}`);
-            await tx.wait();
-
-            matchmakingQueue.push({
-                address: userAddress,
-                isBot: false,
-                score: 0
-            });
-
-            startMatchmakingProcess();
-        } catch (err) {
-            logStatus("Erro ao entrar na arena: " + err.message);
-        }
-    }
-
-    // 5. SISTEMA DE MATCHMAKING HÍBRIDO E BOTS
-    function startMatchmakingProcess() {
-        logStatus("Procurando jogadores reais na fila...");
-        document.getElementById("gameCanvas").innerText = "Buscando oponentes...";
-
-        setTimeout(() => {
-            const matchPlayers = [...matchmakingQueue];
-            matchmakingQueue.length = 0;
-
-            const realPlayersCount = matchPlayers.filter(p => !p.isBot).length;
-
-            while (matchPlayers.length < 4) {
-                matchPlayers.push(generateHumanizedBot());
-            }
-
-            runMatchSimulation(matchPlayers, realPlayersCount);
-        }, 3000);
-    }
-
-    function generateHumanizedBot() {
-        const name = botNamesPool[Math.floor(Math.random() * botNamesPool.length)];
-        return {
-            address:   let provider,body {
+body {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         background-color: var(--bg-color);
         color: var(--text);
@@ -212,6 +20,16 @@ isBot: true,
         border-bottom: 1px solid #334155;
     }
 
+    .wallet-badge {
+        background-color: var(--wallet-bg);
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        color: #38bdf8;
+        font-family: monospace;
+        border: 1px solid #475569;
+    }
+
     .btn {
         background-color: var(--accent);
         color: white;
@@ -224,7 +42,6 @@ isBot: true,
     }
 
     .btn:hover { background-color: var(--accent-hover); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .container {
         width: 100%;
@@ -286,20 +103,22 @@ isBot: true,
     }
 </style><header>
     <h2>Arena PvP Web3 (Polygon)</h2>
-    <button id="connectBtn" class="btn" onclick="connectWallet()">Conectar Carteira</button>
+    <div class="wallet-badge">
+        Carteira: 0x4E67...EBDa
+    </div>
 </header>
 
 <div class="container">
     <!-- ÁREA PRINCIPAL DO JOGO -->
     <div class="game-card">
-        <div id="gameCanvas">Conecte sua carteira para jogar</div>
+        <div id="gameCanvas">Pronto para iniciar a busca por partidas!</div>
         
         <div class="actions">
-            <button id="vipBtn" class="btn" onclick="buyVIPPass()" disabled>Passe VIP (R$ 15 POL)</button>
-            <button id="arenaBtn" class="btn" onclick="enterArenaQueue()" disabled>Entrar na Arena (R$ 5 POL)</button>
+            <button class="btn" onclick="buyVIPPass()">Passe VIP (R$ 15 POL)</button>
+            <button class="btn" onclick="enterArenaQueue()">Entrar na Arena (R$ 5 POL)</button>
         </div>
 
-        <div id="statusLog" class="status-box">Aguardando conexão com a carteira...</div>
+        <div id="statusLog" class="status-box">Sistema operacional. Carteira oficial configurada.</div>
     </div>
 
     <!-- LEADERBOARD / RANKING -->
@@ -321,20 +140,125 @@ isBot: true,
 </div>
 
 <script>
-    // CONFIGURAÇÕES GERAIS E ENDEREÇOS
-    const RECEIVER_WALLET = "0x4E67f3dcd02381733ab8F290D5fb172C2240EBDa";
-
-    let provider, signer, userAddress;
-    let isWalletConnected = false;
-
-    // ESTRUTURA DO MATCHMAKING E LEADERBOARD
+    const MY_WALLET = "0x4E67f3dcd02381733ab8F290D5fb172C2240EBDa";
     const matchmakingQueue = [];
     const leaderboardData = [];
     const botNamesPool = ["ShadowNinja", "CryptoKing_99", "PolyKnight", "VipSlayer", "ApexHunter", "ZeroLag"];
 
-    // 1. CONEXÃO WEB3 & NETWORK CHECK
-    async function connectWallet() {
-        if (!window.ethereum) return alert("MetaMask ou carteira Web3 não encontrada!");
+    function buyVIPPass() {
+        logStatus("Passe VIP (R$ 15 POL) selecionado para envio à carteira: " + MY_WALLET);
+        alert("Passe VIP Solicitado!");
+    }
 
-        try {
-            provider = new ethers.
+    function enterArenaQueue() {logStatus("Entrada na Arena (R$ 5 POL) enviada à carteira: " + MY_WALLET);
+        
+        matchmakingQueue.push({
+            address: MY_WALLET,
+            isBot: false,
+            score: 0
+        });
+
+        startMatchmakingProcess();
+    }
+
+    function startMatchmakingProcess() {
+        logStatus("Procurando jogadores na fila...");
+        document.getElementById("gameCanvas").innerText = "Buscando oponentes...";
+
+        setTimeout(() => {
+            const matchPlayers = [...matchmakingQueue];
+            matchmakingQueue.length = 0;
+
+            const realPlayersCount = matchPlayers.filter(p => !p.isBot).length;
+
+            while (matchPlayers.length < 4) {
+                matchPlayers.push(generateBot());
+            }
+
+            runMatchSimulation(matchPlayers, realPlayersCount);
+        }, 2500);
+    }
+
+    function generateBot() {
+        const name = botNamesPool[Math.floor(Math.random() * botNamesPool.length)];
+        return {
+            address: `${name} (Bot)`,
+            isBot: true,
+            score: 0
+        };
+    }
+
+    function runMatchSimulation(players, realPlayersCount) {
+        logStatus(`Partida iniciada! Jogadores Reais: ${realPlayersCount} | Bots: ${players.length - realPlayersCount}`);
+        document.getElementById("gameCanvas").innerText = "🎮 Partida em andamento...";
+
+        setTimeout(() => {
+            players.forEach(p => {
+                p.score = p.isBot ? Math.floor(Math.random() * 50) : Math.floor(Math.random() * 80) + 20;
+            });
+
+            players.sort((a,b) => b.score - a.score);
+            const winner = players[0];
+
+            document.getElementById("gameCanvas").innerText =size: 0.85rem;
+        color: #38bdf8;
+     
+
+            if (realPlayersCount >= 2) {
+                logStatus("🏆 Partida Válida! Prêmio acumulado enviado para a carteira.");
+            } else {
+                logStatus("⚠️ Apenas 1 jogador real. Reembolso agendado para a carteira.");
+            }
+
+            updateLeaderboard(players);
+        }, 3000);
+    }
+
+    function updateLeaderboard(matchPlayers) {
+        matchPlayers.forEach(p => {
+            if (p.isBot) return;
+
+            const existing = leaderboardData.find(item => item.address === p.address);
+            if (existing) {
+                existing.score += p.score;
+            } else {
+                leaderboardData.push({ address: p.address, score: p.score });
+            }
+        });
+
+        leaderboardData.sort((a,b) => b.score - a.score);
+        renderLeaderboard();
+    }
+
+    function renderLeaderboard() {
+        const tbody = document.getElementById("leaderboardBody");
+        tbody.innerHTML = "";
+
+        if (leaderboardData.length === 0) {
+            tbody.innerHTML =2s;
+    }
+
+    .btn:hover { background-color: var(--accent-hover); }
+
+    .container {
+        wi
+            return;
+        }
+
+        leaderboardData.forEach(p => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td> {p.address.slice(-4)}</td>
+                <td><strong>${p.score} pts</strong></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function logStatus(msg) {
+        const statusBox = document.getElementById("statusLog");
+        statusBox.innerText =n-bottom: 20px;
+        padding-bottom: 15px;
+ 
+    }
+</script>
