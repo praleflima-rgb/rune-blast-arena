@@ -2357,9 +2357,19 @@ function clearSupremeVictoryMusicFade(){
 // Agenda o inicio da ambientacao alguns segundos depois da vinheta de
 // vitoria, pra nao brigar com o impacto inicial dela - entra suave por cima
 // enquanto a vinheta ja esta terminando.
+// Contador de "geracao" do agendamento. Se a limpeza rodar entre o
+// agendamento e o disparo, a geracao muda e o timer antigo se recusa a
+// tocar - protecao a mais caso o clearTimeout nao pegue a tempo.
+let supremeVictoryMusicGeneration = 0;
+
 function scheduleSupremeVictoryMusic(delayMs){
   clearSupremeVictoryMusicFade();
+  const myGeneration = ++supremeVictoryMusicGeneration;
   supremeVictoryMusicTimeoutId = setTimeout(function(){
+    supremeVictoryMusicTimeoutId = null;
+    // cancelado enquanto esperava (jogador clicou em Jogar Novamente antes
+    // dos 2.5s): nao toca nada, senao a musica entra na partida seguinte
+    if(myGeneration !== supremeVictoryMusicGeneration) return;
     supremeVictoryMusic.currentTime = 0;
     supremeVictoryMusic.volume = 0;
     supremeVictoryMusic.play().catch(function(err){
@@ -2379,6 +2389,36 @@ function stopSupremeVictoryMusic(){
   supremeVictoryMusic.pause();
   supremeVictoryMusic.currentTime = 0;
   supremeVictoryMusic.volume = SUPREME_VICTORY_MUSIC_VOLUME;
+}
+
+// ============================================================
+// LIMPEZA TOTAL DE AUDIO DE FIM DE PARTIDA
+// Chamada SEMPRE que o jogador sai de uma tela de resultado (Jogar
+// Novamente / Voltar ao Menu), em qualquer modo. Sem isso, a musica de
+// vitoria/derrota continuava tocando SOBREPOSTA a musica da partida nova.
+// Cobre tambem o agendamento pendente da Vitoria Suprema (setTimeout de
+// 2.5s) - se o jogador clicasse em "Jogar Novamente" antes disso, a musica
+// comecava sozinha no meio da partida seguinte.
+// ============================================================
+function stopAllEndOfMatchAudio(){
+  // invalida qualquer agendamento pendente da vitoria suprema (mesmo que o
+  // clearTimeout abaixo nao pegue a tempo, a geracao mudou e o timer antigo
+  // se recusa a tocar - ver scheduleSupremeVictoryMusic)
+  supremeVictoryMusicGeneration++;
+  if(supremeVictoryMusicTimeoutId){
+    clearTimeout(supremeVictoryMusicTimeoutId);
+    supremeVictoryMusicTimeoutId = null;
+  }
+  stopSupremeVictoryMusic();
+
+  victoryFanfare.pause();
+  victoryFanfare.currentTime = 0;
+
+  defeatTheme.pause();
+  defeatTheme.currentTime = 0;
+
+  stopClosingAmbience(closingAmbiencePvp);
+  stopClosingAmbience(closingAmbienceSurvival);
 }
 
 /* ============================================================
@@ -2959,6 +2999,10 @@ function tryStartNewRun(){
   }
   if(canStartMatch()){
     menuMusicPausedByShop = false; // partida comecando: nao deve "retomar" o lobby depois
+    // rede de seguranca: garante que nenhuma musica de vitoria/derrota da
+    // partida anterior sobreviva ate a nova (mesmo se algum caminho novo
+    // esquecer de chamar stopAllEndOfMatchAudio no botao)
+    stopAllEndOfMatchAudio();
     fadeOutMenuMusic();
     fadeOutShopMusic(300);
     document.getElementById('overlay').classList.add('hidden');
@@ -3210,8 +3254,52 @@ function saveLeaderboard(list){
 let leaderboard = loadLeaderboard();
 
 // pontuacao da temporada: moedas da partida + bonus por fase alcancada
+// ============================================================
+// PONTUACAO DA TEMPORADA - 1 ponto a cada 1000 moedas
+// ------------------------------------------------------------
+// Antes: score = coins + (level-1)*100, o que gerava numeros enormes
+// (2285, 1645...). Agora o ranking fica limpo: cada 1000 moedas
+// RECOLHIDAS valem 1 ponto, e o que sobrar fica guardado pra proxima
+// partida (ex: terminar com 1700 = +1 ponto e 700 acumuladas; na
+// partida seguinte, mais 300 ja fecham o proximo ponto).
+// ============================================================
+const COINS_PER_SEASON_POINT = 1000;
+const COIN_REMAINDER_KEY = 'rb_coin_remainder_v1';
+const SEASON_POINTS_KEY = 'rb_season_points_v1';
+
+function loadCoinRemainder(){
+  let v = 0;
+  try{ v = parseInt(localStorage.getItem(COIN_REMAINDER_KEY), 10) || 0; }catch(e){ v = 0; }
+  return v;
+}
+function saveCoinRemainder(v){
+  try{ localStorage.setItem(COIN_REMAINDER_KEY, String(v)); }catch(e){ /* localStorage indisponivel */ }
+}
+function loadSeasonPoints(){
+  let v = 0;
+  try{ v = parseInt(localStorage.getItem(SEASON_POINTS_KEY), 10) || 0; }catch(e){ v = 0; }
+  return v;
+}
+function saveSeasonPoints(v){
+  try{ localStorage.setItem(SEASON_POINTS_KEY, String(v)); }catch(e){ /* localStorage indisponivel */ }
+}
+
+// Converte as moedas da partida que acabou em pontos de temporada,
+// somando ao que tinha sobrado de partidas anteriores. Devolve quantos
+// pontos foram ganhos AGORA e quanto sobrou pro proximo jogo.
+function convertCoinsToSeasonPoints(coinsThisMatch){
+  const pool = loadCoinRemainder() + Math.max(0, coinsThisMatch||0);
+  const pointsEarned = Math.floor(pool / COINS_PER_SEASON_POINT);
+  const remainder = pool % COINS_PER_SEASON_POINT;
+  saveCoinRemainder(remainder);
+  if(pointsEarned > 0) saveSeasonPoints(loadSeasonPoints() + pointsEarned);
+  return { pointsEarned: pointsEarned, remainder: remainder, total: loadSeasonPoints() };
+}
+
+// A pontuacao enviada ao ranking e o TOTAL acumulado de pontos do jogador
+// (nao o resultado de uma partida isolada).
 function computeFinalScore(){
-  return coins + (level-1)*100;
+  return loadSeasonPoints();
 }
 
 let seasonLeaderboardCache = [];
@@ -3701,6 +3789,9 @@ function dropBossLoot(stageDefeated){
    CONTROLE DE FASES / RODADA
 ============================================================ */
 let usedReviveThisMatch = false;
+// quantas moedas desta rodada JA viraram pontos de temporada - evita contar
+// as mesmas moedas duas vezes quando o jogador revive e continua jogando
+let coinsAlreadyConvertedThisRun = 0;
 let usedDoubleCoinsThisMatch = false;
 
 function beginNewRun(){
@@ -3708,6 +3799,7 @@ function beginNewRun(){
   playCampaignMusic();
   coins = 0;
   usedReviveThisMatch = false;
+  coinsAlreadyConvertedThisRun = 0; // rodada nova: nada convertido ainda
   usedDoubleCoinsThisMatch = false;
   player = makePlayer(); // sempre comeca com exatamente BASE_MAX_LIVES (4) vidas
 
@@ -5173,6 +5265,10 @@ function showSupremeVictory(){
   // que possa falhar (audio, analytics, rede do Supabase). O jogador
   // SEMPRE ve a mensagem de vitoria, mesmo que algo secundario quebre.
   gameState = 'victory';
+  // converte as moedas desta partida em pontos de temporada (1 a cada 1000,
+  // o resto acumula pra proxima) ANTES de ler a pontuacao total
+  const seasonGain = convertCoinsToSeasonPoints(coins);
+  coinsAlreadyConvertedThisRun = coins;
   let score = computeFinalScore();
   const overlay = document.getElementById('overlay');
   overlay.classList.remove('hidden');
@@ -5180,6 +5276,9 @@ function showSupremeVictory(){
     '<h1>&#127942; Vitoria Suprema!</h1>' +
     '<p>Voce derrotou os 3 Estagios de Malak, o Mago do Mal, e completou as 10 Fases do Rune Blast Arena!</p>' +
     '<p class="coinsBig" id="victoryCoinsText">' + coins + ' &#129689;</p>' +
+    '<p id="seasonGainText" style="font-size:12px;color:var(--gold);">' +
+      (seasonGain.pointsEarned > 0 ? '+' + seasonGain.pointsEarned + ' ponto' + (seasonGain.pointsEarned>1?'s':'') + ' de temporada!' : 'Nenhum ponto novo desta vez') +
+      ' (' + seasonGain.remainder + '/' + COINS_PER_SEASON_POINT + ' moedas para o proximo)</p>' +
     '<p id="scoreRankText" style="font-size:12px;">Pontuacao da temporada: ' + score + '</p>' +
     (usedDoubleCoinsThisMatch ? '' : '<button id="doubleCoinsBtn" class="ad-btn">&#127909; Dobrar Recompensas</button>') +
     '<button id="restartBtn">Jogar Novamente</button>' +
@@ -5208,7 +5307,17 @@ function showSupremeVictory(){
           coins *= 2;
           usedDoubleCoinsThisMatch = true;
           document.getElementById('victoryCoinsText').innerHTML = coins + ' &#129689;';
-          // a pontuacao considera as moedas: reenvia com o valor dobrado
+          // converte SO as moedas extras que acabaram de aparecer (as
+          // originais ja viraram pontos quando a tela foi montada)
+          const extraCoins = Math.max(0, coins - coinsAlreadyConvertedThisRun);
+          const extraGain = convertCoinsToSeasonPoints(extraCoins);
+          coinsAlreadyConvertedThisRun = coins;
+          const gainEl = document.getElementById('seasonGainText');
+          if(gainEl){
+            gainEl.textContent = (extraGain.pointsEarned > 0
+              ? '+' + extraGain.pointsEarned + ' ponto' + (extraGain.pointsEarned>1?'s':'') + ' extra' + (extraGain.pointsEarned>1?'s':'') + ' de temporada!'
+              : 'Moedas dobradas') + ' (' + extraGain.remainder + '/' + COINS_PER_SEASON_POINT + ' moedas para o proximo)';
+          }
           score = computeFinalScore();
           submitScore(score);
           const newRank = getPlayerRank();
@@ -5224,11 +5333,11 @@ function showSupremeVictory(){
   }
 
   document.getElementById('restartBtn').addEventListener('click', function(){
-    stopSupremeVictoryMusic();
+    stopAllEndOfMatchAudio();
     tryStartNewRun();
   });
   document.getElementById('backToMenuBtn').addEventListener('click', function(){
-    stopSupremeVictoryMusic();
+    stopAllEndOfMatchAudio();
     location.reload();
   });
 }
@@ -5238,6 +5347,13 @@ function showGameOver(){
   // Suprema: nenhuma chamada secundaria (audio/analytics/rede) pode impedir
   // o jogador de ver a mensagem.
   gameState = 'over';
+  // Converte as moedas desta rodada em pontos de temporada. IMPORTANTE:
+  // guarda quanto ja foi convertido nesta rodada, porque o jogador pode
+  // REVIVER e continuar jogando - sem isso, as mesmas moedas seriam
+  // contadas de novo no proximo game over.
+  const coinsToConvert = Math.max(0, coins - coinsAlreadyConvertedThisRun);
+  const seasonGain = convertCoinsToSeasonPoints(coinsToConvert);
+  coinsAlreadyConvertedThisRun = coins;
   const score = computeFinalScore();
   const overlay = document.getElementById('overlay');
   overlay.classList.remove('hidden');
@@ -5254,6 +5370,9 @@ function showGameOver(){
     '<h1>Fim de Jogo</h1>' +
     '<p>Voce chegou ate a Fase ' + level + ' nesta rodada.</p>' +
     '<p class="coinsBig">' + coins + ' &#129689;</p>' +
+    '<p style="font-size:12px;color:var(--gold);">' +
+      (seasonGain.pointsEarned > 0 ? '+' + seasonGain.pointsEarned + ' ponto' + (seasonGain.pointsEarned>1?'s':'') + ' de temporada!' : 'Nenhum ponto novo desta vez') +
+      ' (' + seasonGain.remainder + '/' + COINS_PER_SEASON_POINT + ' moedas para o proximo)</p>' +
     '<p id="scoreRankText2" style="font-size:12px;">Pontuacao da temporada: ' + score + '</p>' +
     reviveButtons +
     '<button id="restartBtn2">Jogar Novamente</button>' +
@@ -5299,9 +5418,11 @@ function showGameOver(){
   }
 
   document.getElementById('restartBtn2').addEventListener('click', function(){
+    stopAllEndOfMatchAudio();
     tryStartNewRun();
   });
   document.getElementById('backToMenuBtn2').addEventListener('click', function(){
+    stopAllEndOfMatchAudio();
     location.reload();
   });
 }
@@ -7105,10 +7226,12 @@ function showArenaResult(title, subtitle){
     '<button id="arenaRestartBtn">Jogar Novamente</button>' +
     '<button id="arenaMenuBtn" style="margin-top:8px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
   document.getElementById('arenaRestartBtn').addEventListener('click', function(){
+    stopAllEndOfMatchAudio();
     overlay.classList.add('hidden');
     tryStartNewRun();
   });
   document.getElementById('arenaMenuBtn').addEventListener('click', function(){
+    stopAllEndOfMatchAudio();
     location.reload();
   });
 }
