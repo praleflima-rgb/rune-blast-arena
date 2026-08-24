@@ -58,6 +58,15 @@
   }
   .hud-col{display:flex;flex-direction:column;gap:6px;}
   .hud-col.right{align-items:flex-end;}
+  #quitMatchBtn{
+    background:rgba(60,14,24,.75);
+    border:1px solid rgba(255,107,138,.55);
+    color:#ffb3c1;
+    font-family:inherit;font-size:inherit;font-weight:bold;
+    box-shadow:0 0 10px rgba(255,107,138,.2) inset;
+  }
+  #quitMatchBtn:active{ background:rgba(90,20,34,.9); }
+
   .pill{
     background:rgba(20,10,30,.6);
     border:1px solid rgba(160,107,255,.5);
@@ -553,6 +562,7 @@
       <div id="buffsRow" class="pill"></div>
     </div>
     <div class="hud-col right">
+      <button id="quitMatchBtn" class="pill" style="display:none;pointer-events:auto;border:none;cursor:pointer;">&#10005;&nbsp;Sair</button>
       <div id="coinCounter" class="pill">&#129689;&nbsp;<span id="coinText">0</span></div>
       <div id="runeCounter" class="pill"><span class="ico">&#10022;</span><span id="runeCountText">2/2</span></div>
       <button id="capeBtn" class="pill" style="display:none;pointer-events:auto;border:none;cursor:pointer;">&#128737;&#65039;&nbsp;<span id="capeCount">0</span></button>
@@ -1644,7 +1654,7 @@ function getPowerupChance(lvl){
 ============================================================ */
 function makePlayer(){
   return {
-    x:1.5, y:1.5, half:0.34,
+    x:1.5, y:1.5, half:0.30,
     dir:'down', moving:false,
     lives:BASE_MAX_LIVES, maxLives:BASE_MAX_LIVES,
     invulnUntil: performance.now()+SPAWN_GRACE_MS,
@@ -2123,6 +2133,15 @@ victoryFanfare.loop = false;
 victoryFanfare.volume = 1.0;
 victoryFanfare.muted = musicMuted;
 
+// Corta o tema de derrota na hora. Necessario porque derrota e vitoria sao
+// sons de UMA VEZ SO (loop=false): sem isso, se os dois disparassem em
+// sequencia curta (ex: jogador morre na Sobrevivencia e um bot vence logo
+// depois), tocariam SOBREPOSTOS ate cada um acabar sozinho.
+function stopDefeatTheme(){
+  defeatTheme.pause();
+  defeatTheme.currentTime = 0;
+}
+
 function playVictoryFanfare(){
   // corta qualquer BGM de partida que esteja tocando (so uma das quatro
   // realmente estara ativa na pratica - fade em audio ja pausado e no-op)
@@ -2132,6 +2151,7 @@ function playVictoryFanfare(){
   fadeOutBossMusic(200);
   stopClosingAmbience(closingAmbiencePvp);
   stopClosingAmbience(closingAmbienceSurvival);
+  stopDefeatTheme(); // nunca deixar derrota e vitoria tocando juntas
 
   victoryFanfare.currentTime = 0;
   victoryFanfare.volume = 1.0;
@@ -2161,6 +2181,10 @@ function playDefeatTheme(){
   fadeOutBossMusic(200);
   stopClosingAmbience(closingAmbiencePvp);
   stopClosingAmbience(closingAmbienceSurvival);
+  // corta a fanfarra tambem (protege a ordem inversa: vitoria disparada
+  // primeiro e derrota logo em seguida) - nunca as duas juntas
+  victoryFanfare.pause();
+  victoryFanfare.currentTime = 0;
 
   defeatTheme.currentTime = 0;
   defeatTheme.volume = 1.0;
@@ -2683,6 +2707,14 @@ document.getElementById('capeBtn').addEventListener('click', function(){
   saveDailyAdsState(dailyAdsState);
   player.invulnUntil = Math.max(player.invulnUntil, performance.now() + IMMUNITY_DURATION_MS);
   updateCapeButton();
+});
+
+// Botao "Sair" do HUD - encerra a partida atual (ver quitCurrentMatch:
+// em PvP online conta como desistencia/derrota; nos demais modos so volta
+// ao menu sem punicao).
+document.getElementById('quitMatchBtn').addEventListener('click', function(){
+  if(gameState !== 'playing') return;
+  quitCurrentMatch();
 });
 
 /* ============================================================
@@ -4533,6 +4565,13 @@ function updateBoss(dt){
 // corretamente ate um desalinhamento de 0.48 (18 quadros), e continua
 // bloqueando de verdade em 0.49 (o jogador genuinamente ainda nao chegou no
 // corredor) - ou seja, cobre quase toda a folga real sem deixar atravessar parede.
+//
+// NOTA (investigacao de travamentos ao correr): simulacao mostrou que o
+// realinhamento ja resolvia em 1-2 quadros, entao o LIMITE nunca foi o
+// gargalo. A causa real da sensacao de "travar" era a caixa de colisao do
+// heroi (half 0.34 = so 0.16 de folga de cada lado num corredor de 1 casa,
+// ~7.7px). Reduzida para 0.30 (0.20 de folga, ~9.6px, +25%), e a velocidade
+// do realinhamento dobrada (dt*4 -> dt*8) para o deslize ficar imperceptivel.
 const CORNER_SLIDE_THRESHOLD = 0.48;
 
 // centro da celula de grade mais proxima da coordenada v (em unidades de tile)
@@ -4554,7 +4593,7 @@ function tryMoveX(dx, effSpeed, dt){
   const centerY = nearestTileCenter(player.y);
   const offsetY = Math.abs(player.y - centerY);
   if(offsetY > 0.001 && offsetY <= CORNER_SLIDE_THRESHOLD){
-    const step = Math.min(offsetY, effSpeed*dt*4);
+    const step = Math.min(offsetY, effSpeed*dt*8);
     const correctedY = player.y + Math.sign(centerY - player.y)*step;
     if(!boxBlocked(player.x, correctedY, player.half)){
       player.y = correctedY;
@@ -4575,7 +4614,7 @@ function tryMoveY(dy, effSpeed, dt){
   const centerX = nearestTileCenter(player.x);
   const offsetX = Math.abs(player.x - centerX);
   if(offsetX > 0.001 && offsetX <= CORNER_SLIDE_THRESHOLD){
-    const step = Math.min(offsetX, effSpeed*dt*4);
+    const step = Math.min(offsetX, effSpeed*dt*8);
     const correctedX = player.x + Math.sign(centerX - player.x)*step;
     if(!boxBlocked(correctedX, player.y, player.half)){
       player.x = correctedX;
@@ -4634,7 +4673,7 @@ function heroTryMoveX(hero, heroId, dx, effSpeed, dt){
   const centerY = nearestTileCenter(hero.y);
   const offsetY = Math.abs(hero.y - centerY);
   if(offsetY > 0.001 && offsetY <= CORNER_SLIDE_THRESHOLD){
-    const step = Math.min(offsetY, effSpeed*dt*4);
+    const step = Math.min(offsetY, effSpeed*dt*8);
     const correctedY = hero.y + Math.sign(centerY - hero.y)*step;
     if(!boxBlockedForHero(hero.x, correctedY, hero.half, hero)){
       hero.y = correctedY;
@@ -4658,7 +4697,7 @@ function heroTryMoveY(hero, heroId, dy, effSpeed, dt){
   const centerX = nearestTileCenter(hero.x);
   const offsetX = Math.abs(hero.x - centerX);
   if(offsetX > 0.001 && offsetX <= CORNER_SLIDE_THRESHOLD){
-    const step = Math.min(offsetX, effSpeed*dt*4);
+    const step = Math.min(offsetX, effSpeed*dt*8);
     const correctedX = hero.x + Math.sign(centerX - hero.x)*step;
     if(!boxBlockedForHero(correctedX, hero.y, hero.half, hero)){
       hero.x = correctedX;
@@ -4740,7 +4779,7 @@ const ARENA_BLAST_RANGE = Math.min(BASE_BLAST_RANGE + 1, MAX_BLAST_RANGE);
 
 function makeArenaHero(col,row,charIndex){
   return {
-    x:col+0.5, y:row+0.5, half:0.34,
+    x:col+0.5, y:row+0.5, half:0.30,
     dir:'down', moving:false, alive:true,
     speed:BASE_PLAYER_SPEED, blastRange:ARENA_BLAST_RANGE, maxRunes:BASE_MAX_RUNES,
     invulnUntil: performance.now()+SPAWN_GRACE_MS,
@@ -6950,12 +6989,21 @@ function updateSurvivalMode(dt, now){
     if(aliveHeroes.length === 1){
       if(aliveHeroes[0] === human){
         text = 'Voce venceu! Campeao da Arena!';
+        // se o tema de derrota estiver tocando por algum motivo, corta antes
+        // (evita fanfarra sobreposta ao tema de derrota)
+        try{ stopDefeatTheme(); }catch(e){ console.error('[Sobrevivencia] stopDefeatTheme falhou:', e); }
         try{ playVictoryFanfare(); }catch(e){ console.error('[Sobrevivencia] playVictoryFanfare falhou:', e); }
       } else {
         text = aliveHeroes[0].colors.name + ' venceu!';
+        // um BOT venceu: o jogador ja morreu antes e o defeatTheme ja tocou.
+        // Nao toca nada novo aqui (senao sobrepoe), mas garante que a
+        // ambiencia de fechamento da arena pare - antes ela continuava
+        // rodando por baixo ate o fim do arquivo.
+        try{ stopClosingAmbience(closingAmbienceSurvival); }catch(e){ console.error('[Sobrevivencia] stopClosingAmbience falhou:', e); }
       }
     } else {
       text = 'Todos eliminados juntos - sem campeao!';
+      try{ stopClosingAmbience(closingAmbienceSurvival); }catch(e){ console.error('[Sobrevivencia] stopClosingAmbience falhou:', e); }
     }
     const subtitle = pointsEarned > 0
       ? 'Modo Sobrevivencia encerrado. +' + pointsEarned + ' pontos no Ranking Diario!'
@@ -7006,6 +7054,46 @@ function updateSurvivalHud(){
   hudEls.buffsRow.style.display = 'none';
 }
 
+// ============================================================
+// SAIR DA PARTIDA (botao X no HUD)
+// Em partida contra bots ou solo: encerra e volta ao menu, sem punicao.
+// Em PvP ONLINE contra jogador real: conta como DESISTENCIA - o oponente
+// e avisado e vence, e quem desistiu perde (nao pontua). Isso evita que
+// sair da partida vire uma forma de escapar de uma derrota certa.
+// ============================================================
+function isOnlineMatchAgainstRealPlayer(){
+  return gameMode === 'pvp' && pvpIsOnline && !pvpMatchOver;
+}
+
+function quitCurrentMatch(){
+  const isOnlineReal = isOnlineMatchAgainstRealPlayer();
+
+  const msg = isOnlineReal
+    ? 'Desistir da partida? Voce vai PERDER e seu oponente vence.'
+    : 'Encerrar a partida e voltar ao menu principal?';
+  if(!confirm(msg)) return;
+
+  if(isOnlineReal){
+    pvpMatchOver = true;
+    // avisa o oponente (ele recebe 'playerLeft' e vence automaticamente)
+    try{ NetworkManager.send('left', {reason:'quit'}); }catch(e){ console.error('[Sair] falha ao avisar o oponente:', e); }
+    // desistencia = derrota: credita os pontos de PERDEDOR (colocacao 2),
+    // igual a quem perde jogando ate o fim
+    if(pvpIsRanked){
+      try{ awardDailyRankPoints('pvp', 2); }catch(e){ console.error('[Sair] awardDailyRankPoints falhou:', e); }
+    }
+    try{ playDefeatTheme(); }catch(e){ console.error('[Sair] playDefeatTheme falhou:', e); }
+    try{ NetworkManager.disconnect(); }catch(e){ console.error('[Sair] disconnect falhou:', e); }
+    setTimeout(function(){ showArenaResult('Voce desistiu', 'Partida encerrada por desistencia - a vitoria foi do oponente.'); }, 250);
+    return;
+  }
+
+  // partida solo / contra bots: encerra sem punicao nenhuma
+  try{ NetworkManager.cancelSearch(); }catch(e){}
+  try{ NetworkManager.disconnect(); }catch(e){}
+  location.reload();
+}
+
 // Tela de resultado compartilhada por PvP e Sobrevivencia.
 function showArenaResult(title, subtitle){
   gameState = 'over';
@@ -7039,6 +7127,11 @@ function loop(ts){
     let dt = (ts - lastTime)/1000;
     if(dt > 0.05) dt = 0.05;
     lastTime = ts;
+
+    // botao "Sair" so aparece com a partida em andamento (some no menu e
+    // nas telas de resultado, que ja tem os proprios botoes de navegacao)
+    const quitBtnEl = document.getElementById('quitMatchBtn');
+    if(quitBtnEl) quitBtnEl.style.display = (gameState === 'playing') ? 'flex' : 'none';
 
     if(gameMode === 'pvp'){
       updatePvpMode(dt, ts);
