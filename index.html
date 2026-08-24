@@ -1277,7 +1277,10 @@ const BASE_BLAST_RANGE = 1, MAX_BLAST_RANGE = 5; // cada Bonus de Fogo coletado 
 const BASE_MAX_RUNES = 2, MAX_MAX_RUNES = 5;
 const BASE_PLAYER_SPEED = 3.1, MAX_PLAYER_SPEED = 5.5, SPEED_INCREMENT = 0.45;
 const BASE_MAX_LIVES = 4, ABS_MAX_LIVES = 8;
-const RUNE_FUSE_MS = 4200; // tempo de pavio da bomba - da tempo real de plantar e recuar
+const RUNE_FUSE_MS = 3200; // pavio da bomba - reduzido de 4200 (ritmo mais agil).
+// Conferido por calculo: escapar do raio 3 (o mais comum com upgrades) leva
+// ~833ms na velocidade base, entao ainda sobram ~2.4s de margem - rapido,
+// mas nunca injusto.
 const FLAME_LIFE_MS = 420;
 const HIT_INVULN_MS = 1400;
 const SPAWN_GRACE_MS = 900;
@@ -3266,6 +3269,22 @@ let leaderboard = loadLeaderboard();
 const COINS_PER_SEASON_POINT = 1000;
 const COIN_REMAINDER_KEY = 'rb_coin_remainder_v1';
 const SEASON_POINTS_KEY = 'rb_season_points_v1';
+
+// RESET DA TEMPORADA: o ranking foi zerado no servidor ao trocar para o
+// sistema de "1 ponto a cada 1000 moedas". Sem isto, o valor antigo (inflado)
+// que ficou guardado no navegador de cada jogador voltaria pro ranking na
+// primeira partida. Roda UMA VEZ por aparelho e nunca mais.
+const SEASON_RESET_FLAG_KEY = 'rb_season_reset_1000coins_done';
+(function resetLocalSeasonDataOnce(){
+  try{
+    if(localStorage.getItem(SEASON_RESET_FLAG_KEY)) return;
+    localStorage.removeItem(SEASON_POINTS_KEY);
+    localStorage.removeItem(COIN_REMAINDER_KEY);
+    localStorage.removeItem(PLAYER_BEST_SCORE_KEY);
+    localStorage.removeItem(LEADERBOARD_KEY);
+    localStorage.setItem(SEASON_RESET_FLAG_KEY, '1');
+  }catch(e){ /* localStorage indisponivel - segue normal */ }
+})();
 
 function loadCoinRemainder(){
   let v = 0;
