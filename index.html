@@ -1844,6 +1844,27 @@ function playMenuMusic(){
   });
 }
 
+// Pausa a musica do lobby GUARDANDO a posicao atual (diferente de
+// fadeOutMenuMusic, que reseta pro comeco) - usada quando a Loja abre, pra
+// que so a musica da Loja toque; ao fechar, retoma exatamente de onde parou.
+let menuMusicPausedByShop = false;
+function pauseMenuMusicForShop(){
+  clearMenuMusicFade();
+  if(!menuMusic.paused){
+    menuMusic.pause();
+    menuMusicPausedByShop = true;
+  }
+}
+function resumeMenuMusicAfterShop(){
+  if(!menuMusicPausedByShop) return;
+  menuMusicPausedByShop = false;
+  clearMenuMusicFade();
+  menuMusic.volume = 0.4;
+  menuMusic.play().catch(function(err){
+    console.warn('[Musica do menu] nao foi possivel retomar:', err.message);
+  });
+}
+
 // Fade-out suave da musica do menu (usado ao iniciar qualquer partida -
 // Campanha, Sobrevivencia ou PvP). Ao terminar, pausa e volta o volume ao
 // padrao, pronta para tocar de novo na proxima vez que o menu aparecer.
@@ -2905,6 +2926,7 @@ function tryStartNewRun(){
     return;
   }
   if(canStartMatch()){
+    menuMusicPausedByShop = false; // partida comecando: nao deve "retomar" o lobby depois
     fadeOutMenuMusic();
     fadeOutShopMusic(300);
     document.getElementById('overlay').classList.add('hidden');
@@ -3050,10 +3072,21 @@ function toggleAccordion(headerEl){
   body.classList.toggle('open', willOpen);
   if(willOpen) AudioEngine.modalOpen(); else AudioEngine.modalClose();
 
-  // ambientacao propria da Loja de Equipamentos - so toca com a secao aberta
+  // ambientacao propria da Loja de Equipamentos - so toca com a secao aberta.
+  // A musica do lobby PAUSA (guardando a posicao) enquanto a Loja esta
+  // aberta, e retoma de onde parou quando a Loja fecha.
   if(body.id === 'acc-shop'){
-    if(willOpen) playShopMusic(); else fadeOutShopMusic(500);
+    if(willOpen){
+      pauseMenuMusicForShop();
+      playShopMusic();
+    } else {
+      fadeOutShopMusic(500);
+      resumeMenuMusicAfterShop();
+    }
   }
+
+  // ao abrir o Ranking Diario, busca os dados mais recentes do servidor
+  if(body.id === 'acc-rank' && willOpen) refreshDailyRankPanels();
 }
 document.querySelectorAll('.accordion-header').forEach(function(header){
   header.addEventListener('click', function(){ toggleAccordion(header); });
@@ -3423,6 +3456,55 @@ function saveDailyRank(mode, data){
   try{ localStorage.setItem(DAILY_RANK_KEY_PREFIX + mode, JSON.stringify(data)); }catch(e){ /* localStorage indisponivel */ }
 }
 
+// ============================================================
+// RANKING DIARIO COMPARTILHADO (Supabase)
+// O localStorage acima continua servindo de cache/fallback offline, mas
+// quando ha conta logada o ranking REAL vem do banco - antes cada aparelho
+// tinha o proprio ranking isolado, e um jogador nunca via o outro.
+// ============================================================
+const sharedDailyRankCache = { survival: null, pvp: null };
+
+function fetchDailyRankFromSupabase(mode){
+  if(!supabaseConfigured) return Promise.resolve(null);
+  return supabaseClient
+    .from('daily_rank')
+    .select('username, points, matches, best_placement')
+    .eq('mode', mode)
+    .eq('cycle_date', getCycleDateKey())
+    .order('points', { ascending: false })
+    .limit(50)
+    .then(function(res){
+      if(res.error){ console.warn('[Ranking Diario] falha ao buscar:', res.error.message); return null; }
+      sharedDailyRankCache[mode] = (res.data||[]).map(function(r){
+        return { name:r.username, points:r.points, matches:r.matches, bestPlacement:r.best_placement };
+      });
+      return sharedDailyRankCache[mode];
+    });
+}
+
+// Busca os dois modos e redesenha o painel quando os dados chegarem.
+function refreshDailyRankPanels(){
+  if(!supabaseConfigured) return;
+  Promise.all([fetchDailyRankFromSupabase('survival'), fetchDailyRankFromSupabase('pvp')])
+    .then(function(){ renderDailyRankPanel(); })
+    .catch(function(err){ console.warn('[Ranking Diario] erro ao atualizar:', err.message); });
+}
+
+function submitDailyRankPointsToSupabase(mode, points, placement){
+  if(!supabaseConfigured || !currentUserId) return;
+  supabaseClient.rpc('add_daily_rank_points', {
+    p_mode: mode,
+    p_cycle_date: getCycleDateKey(),
+    p_username: getMyRankName(),
+    p_points: points,
+    p_placement: placement
+  }).then(function(res){
+    if(res.error) console.warn('[Ranking Diario] falha ao enviar pontos:', res.error.message);
+    else fetchDailyRankFromSupabase(mode);
+  });
+}
+
+
 // Credita os pontos de colocacao (tabela propria por modo) ao ranking ao
 // vivo daquele modo. So chamada quando o jogador tem passe ativo.
 function awardDailyRankPoints(mode, placement){
@@ -3441,6 +3523,8 @@ function awardDailyRankPoints(mode, placement){
   entry.bestPlacement = Math.min(entry.bestPlacement, placement);
   saveDailyRank(mode, data);
   appendDailyHistory(mode, points);
+  // envia tambem pro ranking COMPARTILHADO (o que todos os jogadores veem)
+  submitDailyRankPointsToSupabase(mode, points, placement);
   return points;
 }
 
@@ -3459,7 +3543,10 @@ function renderRankBoardHtml(mode){
   const modeInfo = RANK_MODES.find(function(m){ return m.id===mode; });
   const myName = getMyRankName();
   const data = loadDailyRank(mode);
-  const sorted = data.players.slice().sort(function(a,b){ return b.points-a.points; });
+  // usa o ranking COMPARTILHADO (Supabase) quando disponivel; o local so
+  // aparece como fallback (offline / sem conta logada)
+  const players = sharedDailyRankCache[mode] || data.players;
+  const sorted = players.slice().sort(function(a,b){ return b.points-a.points; });
   const myEntry = sorted.find(function(p){ return p.name===myName; });
   const myRank = myEntry ? sorted.indexOf(myEntry)+1 : null;
   const cycleEndsAt = getCycleEndTimestamp(data.cycleDate);
@@ -7001,6 +7088,7 @@ renderProfilePanel();
 renderMatchPanel();
 renderGameModesPanel();
 renderDailyRankPanel();
+refreshDailyRankPanels(); // busca o ranking COMPARTILHADO e redesenha quando chegar
 renderEquipmentPanel();
 renderLeaderboardPanel();
 renderInvitePanel();
