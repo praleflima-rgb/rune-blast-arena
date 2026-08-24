@@ -1664,7 +1664,7 @@ function makePlayer(){
     blastRange:BASE_BLAST_RANGE,
     maxRunes:BASE_MAX_RUNES,
     speed:BASE_PLAYER_SPEED,
-    colors: CHARACTERS[0]
+    colors: CHARACTERS[selectedCharacterIndex % CHARACTERS.length]
   };
 }
 function resetPlayerPosition(){
@@ -3821,6 +3821,10 @@ function beginNewRun(){
   coinsAlreadyConvertedThisRun = 0; // rodada nova: nada convertido ainda
   usedDoubleCoinsThisMatch = false;
   player = makePlayer(); // sempre comeca com exatamente BASE_MAX_LIVES (4) vidas
+  // A CAMPANHA e o unico modo onde o equipamento da vantagem de verdade
+  // (partida solo contra o jogo, nao contra outros jogadores). No PvP e na
+  // Sobrevivencia os itens aparecem visualmente mas nao dao bonus nenhum.
+  applyEquippedItemEffects(player, true);
 
   // BUGFIX: o marco de "+1/+2 vidas" do Painel de Recompensas Diarias estava sendo
   // somado direto as vidas iniciais (dailyAdsState.dailyBonusLives), fazendo a
@@ -5053,7 +5057,7 @@ function renderEquipmentPanel(){
     '<div class="equip-list">' + passHtml + '</div>' +
     '<div class="daily-title" style="margin-top:12px;">\u{1F6D2} Loja de Equipamentos</div>' +
     '<div class="daily-milestone">Sua carteira: <b>' + walletGold + ' \u{1FA99}</b> (ganhe jogando a Campanha)</div>' +
-    '<div class="daily-milestone">Vale no PvP Local e na Sobrevivencia LIVRE (sem passe do dia). Nao vale no Modo Ranqueado.</div>' +
+    '<div class="daily-milestone">\u2694\uFE0F Os bonus valem apenas na <b>Campanha</b>. No PvP e na Sobrevivencia os itens aparecem no seu personagem, mas <b>sem vantagem</b> - a arena e 100% habilidade.</div>' +
     '<div class="equip-list">' + rows + '</div>';
 
   el.querySelectorAll('.buy-pass-btn').forEach(function(btn){
@@ -6405,8 +6409,12 @@ function startPvpMatchLocal(){
   pvpP2 = makeArenaHero(COLS-2, ROWS-2, selectedCharacterIndex+1);
   pvpP1.heroId = 'p1'; pvpP2.heroId = 'p2';
   pvpP1.dir = 'down'; pvpP2.dir = 'up';
-  applyEquippedItemEffects(pvpP1, !pvpIsRanked);
-  applyEquippedItemEffects(pvpP2, !pvpIsRanked);
+  // ARENA E 100% HABILIDADE: os efeitos de equipamento ficam SEMPRE
+  // desligados no PvP (ranqueado ou nao). Os itens continuam aparecendo
+  // VISUALMENTE no personagem - so nao dao vantagem nenhuma aqui. Bonus de
+  // atributo valem apenas na Campanha (modo solo contra o jogo).
+  applyEquippedItemEffects(pvpP1, false);
+  applyEquippedItemEffects(pvpP2, false);
   pvpCloseState = createArenaCloseState(performance.now());
   gameState = 'playing';
   updatePvpHud();
@@ -6488,7 +6496,10 @@ function startPvpMatchOnline(){
     pvpP1 = makeArenaHero(pvpIAmP1?meCol:themCol, pvpIAmP1?meRow:themRow, selectedCharacterIndex);
     pvpP2 = makeArenaHero(pvpIAmP1?themCol:meCol, pvpIAmP1?themRow:meRow, data.opponentCharIndex||0);
     pvpP1.heroId = 'me'; pvpP2.heroId = 'opponent';
-    applyEquippedItemEffects(pvpP1, !pvpIsRanked); // itens do oponente ainda nao sincronizam via rede (proxima etapa do servidor)
+    // Arena e 100% habilidade - efeitos desligados (ver startPvpMatchLocal).
+    // Isso tambem resolve a antiga limitacao de os itens do oponente nao
+    // sincronizarem pela rede: como ninguem tem bonus, nao ha o que sincronizar.
+    applyEquippedItemEffects(pvpP1, false);
 
     pvpCloseState = createArenaCloseState(data.matchStartAt || performance.now());
     pvpWaitingForOpponent = false;
@@ -6987,7 +6998,11 @@ function startSurvivalMatch(){
     h.nextDecision = 0;
     h.dxDir = [0,0];
     if(h.isBot) assignBotIdentity(h);
-    if(i===0) applyEquippedItemEffects(h, !survivalIsRanked); // so o humano pode ter itens; bots nunca
+    // Arena e 100% habilidade: efeitos de equipamento SEMPRE desligados na
+    // Sobrevivencia (ranqueada ou nao). Os itens seguem visiveis no
+    // personagem, so nao dao vantagem - assim o humano nao leva bonus contra
+    // os bots, e futuras partidas com humanos reais ja saem equilibradas.
+    if(i===0) applyEquippedItemEffects(h, false);
     return h;
   });
 
