@@ -772,13 +772,18 @@
    jogo le/escreve nas variaveis locais na mesma hora de sempre,
    e o envio pro banco acontece em segundo plano (fire-and-forget).
 ============================================================ */
+// Credenciais do Supabase – fallback hardcoded garante que as variaveis
+// nunca sejam undefined mesmo que config.js nao carregue antes deste script.
+const SUPABASE_URL  = (window.SUPABASE_URL  || 'https://yssdwwfqdendmfknbsgx.supabase.co');
+const SUPABASE_KEY  = (window.SUPABASE_ANON_KEY || 'sb_publishable_QHDV_lT-suQhvU-cFp-UXw_TGZ6EznH');
+
 // Se a chave ainda nao foi preenchida, o jogo cai de volta pro
 // funcionamento antigo (so localStorage, sem conta) - evita que o jogo
 // quebre/redirecione pra tela de login enquanto voce ainda esta
 // configurando o Supabase pela primeira vez.
 const supabaseConfigured = typeof window.supabase !== 'undefined' &&
   SUPABASE_KEY !== 'COLE_AQUI_A_SUA_CHAVE_ANON_PUBLIC' && !!SUPABASE_URL;
-const supabaseClient = supabaseConfigured ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null;
+const supabaseClient = supabaseConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 let currentUserId = null;
 
 /* ============================================================
