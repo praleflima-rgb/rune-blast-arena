@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -101,17 +101,21 @@
             schema.sql que acompanha este projeto.
     ============================================================ */
 
-
+    const SUPABASE_URL = 'https://yssdwwfqdendmfknbsgx.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_QHDV_lT-suQhvU-cFp-UXw_TGZ6EznH';
 
     // Depois de trocar para runeblast.html, a MESMA sessao criada aqui e
     // reconhecida automaticamente la (o supabase-js guarda a sessao no
     // localStorage do navegador por padrao) - nao precisa passar nada
     // manualmente entre as duas paginas.
-    const GAME_PAGE_URL = 'runeblast.html';
+    const GAME_PAGE_URL = 'index.html'; // Corrigido de runeblast.html para index.html
 
-    // nome diferente de "supabase" para nao colidir com a biblioteca global
-    // que o script do CDN acima ja criou (window.supabase)
-    const supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+    let supabaseClient = null;
+    try {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    } catch(err) {
+      console.error('Erro ao inicializar Supabase:', err);
+    }
 
     const msgDiv = document.getElementById('msg');
     const loginBtn = document.getElementById('loginBtn');
@@ -119,7 +123,7 @@
 
     function exibirMensagem(texto, ehErro){
       msgDiv.className = ehErro ? 'error' : 'success';
-      msgDiv.textContent = texto;
+      msgDiv.innerText = texto;
     }
 
     function setBotoesDesabilitados(desabilitado){
@@ -130,70 +134,105 @@
     // Se ja existe uma sessao valida (usuario nao deslogou), pula direto
     // pro jogo em vez de mostrar o formulario de novo.
     (async function checarSessaoExistente(){
-      const { data } = await supabaseClient.auth.getSession();
-      if(data && data.session){
-        window.location.href = GAME_PAGE_URL;
-      }
+      if (!supabaseClient) return;
+      try {
+        const { data } = await supabaseClient.auth.getSession();
+        if(data && data.session){
+          window.location.href = GAME_PAGE_URL;
+        }
+      } catch(e) {}
     })();
 
     async function registrar(){
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
+      try {
+        if (!supabaseClient) throw new Error('Supabase nao inicializado');
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
 
-      if(!email || !password){
-        exibirMensagem('Preencha todos os campos!', true);
-        return;
-      }
-      if(password.length < 6){
-        exibirMensagem('A senha precisa ter pelo menos 6 caracteres.', true);
-        return;
-      }
+        if(!email || !password){
+          exibirMensagem('Preencha todos os campos!', true);
+          return;
+        }
+        if(password.length < 6){
+          exibirMensagem('A senha precisa ter pelo menos 6 caracteres.', true);
+          return;
+        }
 
-      setBotoesDesabilitados(true);
-      exibirMensagem('Criando conta...');
+        setBotoesDesabilitados(true);
+        exibirMensagem('Criando conta...');
 
-      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
 
-      setBotoesDesabilitados(false);
+        setBotoesDesabilitados(false);
 
-      if(error){
-        exibirMensagem('Erro ao criar conta: ' + error.message, true);
-        return;
-      }
+        if(error){
+          exibirMensagem('Erro ao criar conta: ' + error.message, true);
+          alert('Erro ao criar conta: ' + error.message);
+          return;
+        }
 
-      // se a confirmacao por e-mail estiver ativa no projeto, data.session
-      // vem vazio ate o usuario clicar no link do e-mail
-      if(data.session){
-        exibirMensagem('Conta criada! Entrando...');
-        setTimeout(function(){ window.location.href = GAME_PAGE_URL; }, 600);
-      } else {
-        exibirMensagem('Conta criada! Verifique seu e-mail para confirmar antes de entrar.');
+        // se a confirmacao por e-mail estiver ativa no projeto, data.session
+        // vem vazio ate o usuario clicar no link do e-mail
+        if(data.session){
+          exibirMensagem('Conta criada! Entrando...');
+          setTimeout(function(){ window.location.href = GAME_PAGE_URL; }, 600);
+        } else {
+          exibirMensagem('Conta criada! Verifique seu e-mail para confirmar antes de entrar.');
+        }
+      } catch (err) {
+        setBotoesDesabilitados(false);
+        exibirMensagem('Erro JS: ' + err.message, true);
+        alert('Erro JS: ' + err.message);
       }
     }
 
     async function fazerLogin(){
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
+      try {
+        if (!supabaseClient) throw new Error('Supabase nao inicializado');
+        const emailInput = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
 
-      if(!email || !password){
-        exibirMensagem('Preencha todos os campos!', true);
-        return;
+        if(!emailInput || !password){
+          exibirMensagem('Preencha todos os campos!', true);
+          return;
+        }
+
+        // Determine if input is email or nickname
+        let email = emailInput;
+        if (!email.includes('@')) {
+          // Lookup email by nickname in profiles table
+          const { data: profileData, error: profileError } = await supabaseClient
+            .from('profiles')
+            .select('email')
+            .eq('nickname', email)
+            .single();
+          if (profileError || !profileData) {
+            exibirMensagem('Apelido não encontrado ou erro ao buscar e‑mail.', true);
+            return;
+          }
+          email = profileData.email;
+        }
+
+        setBotoesDesabilitados(true);
+        exibirMensagem('Validando...');
+
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+        setBotoesDesabilitados(false);
+
+        if(error){
+          exibirMensagem('E-mail ou senha incorretos!', true);
+          alert('Erro Supabase: ' + error.message);
+          return;
+        }
+
+        exibirMensagem('Login bem-sucedido! Entrando...');
+        setTimeout(function(){ window.location.href = GAME_PAGE_URL; }, 400);
+      } catch (err) {
+        setBotoesDesabilitados(false);
+        exibirMensagem('Erro JS: ' + err.message, true);
+        alert('Erro JS: ' + err.message);
       }
-
-      setBotoesDesabilitados(true);
-      exibirMensagem('Validando...');
-
-      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-
-      setBotoesDesabilitados(false);
-
-      if(error){
-        exibirMensagem('E-mail ou senha incorretos!', true);
-        return;
-      }
-
-      exibirMensagem('Login bem-sucedido! Entrando...');
-      setTimeout(function(){ window.location.href = GAME_PAGE_URL; }, 400);
     }
 
     loginBtn.addEventListener('click', fazerLogin);

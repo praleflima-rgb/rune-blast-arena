@@ -971,43 +971,49 @@ function showMfaChallengeModal(factorId, userId){
 }
 
 async function handleAuthLogin(){
-  const identifier = (document.getElementById('authIdentifier').value || '').trim();
-  const password = document.getElementById('authPassword').value || '';
-  if(!identifier || !password){ showAuthError('Preencha apelido/e-mail e senha!'); return; }
+  try {
+    const identifier = (document.getElementById('authIdentifier').value || '').trim();
+    const password = document.getElementById('authPassword').value || '';
+    if(!identifier || !password){ showAuthError('Preencha apelido/e-mail e senha!'); return; }
 
-  setAuthButtonsDisabled(true);
-  showAuthMessage('Validando...');
+    setAuthButtonsDisabled(true);
+    showAuthMessage('Validando...');
 
-  // Supabase Auth so reconhece e-mail nativamente. Se o que foi digitado
-  // parece um e-mail (tem "@"), usa direto. Senao, e um apelido - busca o
-  // e-mail correspondente no banco antes de tentar autenticar.
-  let email = identifier;
-  if(identifier.indexOf('@') === -1){
-    const { data: foundEmail, error: lookupError } = await supabaseClient.rpc('get_email_by_username', { p_username: identifier });
-    if(lookupError || !foundEmail){
-      setAuthButtonsDisabled(false);
-      showAuthError('Apelido nao encontrado!');
+    // Supabase Auth so reconhece e-mail nativamente. Se o que foi digitado
+    // parece um e-mail (tem "@"), usa direto. Senao, e um apelido - busca o
+    // e-mail correspondente no banco antes de tentar autenticar.
+    let email = identifier;
+    if(identifier.indexOf('@') === -1){
+      const { data: foundEmail, error: lookupError } = await supabaseClient.rpc('get_email_by_username', { p_username: identifier });
+      if(lookupError || !foundEmail){
+        setAuthButtonsDisabled(false);
+        showAuthError('Apelido nao encontrado!');
+        return;
+      }
+      email = foundEmail;
+    }
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password, options: getCaptchaOptions() });
+    resetCaptchaWidget();
+    setAuthButtonsDisabled(false);
+
+    if(error){ showAuthError('Erro: ' + error.message); alert('Erro Supabase: ' + error.message); return; }
+    showAuthMessage('Login bem-sucedido! Verificando...');
+
+    const factorId = await checkMfaChallengeRequired();
+    if(factorId){
+      const modal = document.getElementById('authModal');
+      if(modal) modal.classList.add('hidden');
+      showMfaChallengeModal(factorId, data.session.user.id);
       return;
     }
-    email = foundEmail;
+
+    await afterSuccessfulAuth(data.session.user.id);
+  } catch(err) {
+    setAuthButtonsDisabled(false);
+    showAuthError('Erro na chamada JS: ' + err.message);
+    alert('Erro JS: ' + err.message);
   }
-
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password, options: getCaptchaOptions() });
-  resetCaptchaWidget();
-  setAuthButtonsDisabled(false);
-
-  if(error){ showAuthError('Apelido/e-mail ou senha incorretos!'); return; }
-  showAuthMessage('Login bem-sucedido! Verificando...');
-
-  const factorId = await checkMfaChallengeRequired();
-  if(factorId){
-    const modal = document.getElementById('authModal');
-    if(modal) modal.classList.add('hidden');
-    showMfaChallengeModal(factorId, data.session.user.id);
-    return;
-  }
-
-  await afterSuccessfulAuth(data.session.user.id);
 }
 
 async function handleAuthRegister(){
