@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -99,9 +99,6 @@
             usuario logado, nunca de outros jogadores. Ver o arquivo
             schema.sql que acompanha este projeto.
     ============================================================ */
-    const SUPABASE_URL = 'https://yssdwwfqdendmfknbsgx.supabase.co';
-    const SUPABASE_KEY = 'COLE_AQUI_A_SUA_CHAVE_ANON_PUBLIC';
-
     // Depois de trocar para runeblast.html, a MESMA sessao criada aqui e
     // reconhecida automaticamente la (o supabase-js guarda a sessao no
     // localStorage do navegador por padrao) - nao precisa passar nada
@@ -110,7 +107,7 @@
 
     // nome diferente de "supabase" para nao colidir com a biblioteca global
     // que o script do CDN acima ja criou (window.supabase)
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 
     const msgDiv = document.getElementById('msg');
     const loginBtn = document.getElementById('loginBtn');
@@ -203,3 +200,4 @@
   </script>
 </body>
 </html>
+
