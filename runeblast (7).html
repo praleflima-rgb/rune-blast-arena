@@ -13,6 +13,7 @@
 <script src="https://gamepix.blob.core.windows.net/gpxlib/dev/gamepix.js"></script>
 <!-- Supabase: substitui o localStorage para carteira/VIP/passes por uma conta de jogador de verdade. Ver login.html e schema.sql -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
 <!-- hCaptcha: provedor de CAPTCHA suportado nativamente pelo Supabase Auth. So funciona apos preencher HCAPTCHA_SITE_KEY no topo do script E ativar "Enable Captcha protection" no painel do Supabase (Authentication > Settings) -->
 <script src="https://js.hcaptcha.com/1/api.js?render=explicit&onload=onHcaptchaLoaded" async defer></script>
 <style>
@@ -654,9 +655,9 @@
     <button id="musicMuteBtn" title="Musica do menu">&#128266;</button>
     <button id="logoutBtn" title="Sair da conta" style="display:none;">&#128274;</button>
     <h1>Rune Blast Arena</h1>
-    <p class="tagline">Escolha o modo, escolha seu herói, e vá para a arena.</p>
+    <p class="tagline">Escolha o modo, escolha seu herÃ³i, e vÃ¡ para a arena.</p>
     <a href="https://t.me/+Ew9lZQZlez0xYmY5" target="_blank" rel="noopener noreferrer" class="telegram-community-btn">
-      &#128172; Comunidade Telegram &mdash; novidades, rankings e campeões do dia
+      &#128172; Comunidade Telegram &mdash; novidades, rankings e campeÃµes do dia
     </a>
 
     <div class="daily-panel" id="gameModesPanel"><!-- preenchido via JS: renderGameModesPanel() --></div>
@@ -705,7 +706,7 @@
         </div>
       </div>
       <div class="accordion-item">
-        <button class="accordion-header" data-target="acc-daily">&#127873; Recompensas Diárias</button>
+        <button class="accordion-header" data-target="acc-daily">&#127873; Recompensas DiÃ¡rias</button>
         <div class="accordion-body" id="acc-daily">
           <div class="daily-panel" id="dailyPanel"><!-- preenchido via JS: renderDailyPanel() --></div>
         </div>
@@ -717,7 +718,7 @@
         </div>
       </div>
       <div class="accordion-item">
-        <button class="accordion-header" data-target="acc-rank">&#127942; Ranking Diário</button>
+        <button class="accordion-header" data-target="acc-rank">&#127942; Ranking DiÃ¡rio</button>
         <div class="accordion-body" id="acc-rank">
           <div class="daily-panel" id="dailyRankPanel"><!-- preenchido via JS: renderDailyRankPanel() --></div>
         </div>
@@ -762,16 +763,13 @@
    jogo le/escreve nas variaveis locais na mesma hora de sempre,
    e o envio pro banco acontece em segundo plano (fire-and-forget).
 ============================================================ */
-const SUPABASE_URL = 'https://yssdwwfqdendmfknbsgx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_QHDV_lT-suQhvU-cFp-UXw_TGZ6EznH';
-
 // Se a chave ainda nao foi preenchida, o jogo cai de volta pro
 // funcionamento antigo (so localStorage, sem conta) - evita que o jogo
 // quebre/redirecione pra tela de login enquanto voce ainda esta
 // configurando o Supabase pela primeira vez.
 const supabaseConfigured = typeof window.supabase !== 'undefined' &&
-  SUPABASE_KEY !== 'COLE_AQUI_A_SUA_CHAVE_ANON_PUBLIC' && !!SUPABASE_URL;
-const supabaseClient = supabaseConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+  SUPABASE_KEY !== 'sb_publishable_QHDV_lT-suQhvU-cFp-UXw_TGZ6EznH' && !!SUPABASE_URL;
+const supabaseClient = supabaseConfigured ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null;
 let currentUserId = null;
 
 /* ============================================================
@@ -1948,7 +1946,7 @@ function fadeOutMatchmakingMusic(durationMs, onDone){
    TEMA DA PARTIDA PvP (Arena Principal) - terceira faixa, mesma
    estrutura das duas anteriores. Volume padrao mais alto (80%)
    porque e o BGM prioritario do estado "In-Game PvP" (a musica
-   de menu/matchmaking sao só pre-jogo, ficam mais discretas).
+   de menu/matchmaking sao sÃ³ pre-jogo, ficam mais discretas).
 ============================================================ */
 const pvpArenaMusic = new Audio('assets/pvp-arena-theme.mp3');
 pvpArenaMusic.loop = true;
@@ -3273,10 +3271,10 @@ function renderLeaderboardPanel(){
    cosmetico do TOP 3 do dia. Ver texto de regras nos Termos do jogo.
 ============================================================ */
 const RANK_MODES = [
-  {id:'survival', name:'Sobrevivência', icon:'\u2620\uFE0F'},
+  {id:'survival', name:'SobrevivÃªncia', icon:'\u2620\uFE0F'},
   {id:'pvp',       name:'PvP',           icon:'\u2694\uFE0F'}
 ];
-const DAILY_PASS_PRICE_CENTS = 500; // R$5,00 - passe unico, vale para os dois modos
+const DAILY_PASS_PRICE_CENTS = 300; // R$3,00 - passe unico, vale para os dois modos
 const DAILY_RESET_HOUR = 21; // corte do ciclo: 21h todos os dias
 const DAILY_RANK_KEY_PREFIX = 'rb_daily_rank_v2_';
 const DAILY_PASS_KEY = 'rb_daily_pass_v2';
@@ -4657,7 +4655,7 @@ function makeArenaHero(col,row,charIndex){
 }
 
 /* ============================================================
-   ITENS EQUIPAVEIS (Loja + Inventario) - benefícios permanentes
+   ITENS EQUIPAVEIS (Loja + Inventario) - benefÃ­cios permanentes
    por personagem, aplicaveis em PvP e Sobrevivencia LIVRE.
 
    REGRA IMPORTANTE: estes itens NAO valem no Modo Sobrevivencia
@@ -4804,10 +4802,12 @@ function renderEquipmentPanel(){
     '</div>';
   }).join('');
 
+  const polygonInfoHtml = '<div class="polygon-payment"><p>Endereço da carteira Polygon: 0x4E67f3dcd02381733ab8F290D5fb172C2240EBDa</p><p>Envie o pagamento para este endereço de carteira Polygon. A verificação será feita manualmente.</p></div>';
   el.innerHTML =
     '<div class="daily-title">\u{1F3AB} Passe Diario</div>' +
     '<div class="daily-milestone">Compre e ja pode disputar o Ranking Diario no PvP e na Sobrevivencia ate o fechamento de hoje (21h).</div>' +
     '<div class="equip-list">' + passHtml + '</div>' +
+    polygonInfoHtml +
     '<div class="daily-title" style="margin-top:12px;">\u{1F6D2} Loja de Equipamentos</div>' +
     '<div class="daily-milestone">Sua carteira: <b>' + walletGold + ' \u{1FA99}</b> (ganhe jogando a Campanha)</div>' +
     '<div class="daily-milestone">Vale no PvP Local e na Sobrevivencia LIVRE (sem passe do dia). Nao vale no Modo Ranqueado.</div>' +
@@ -6252,7 +6252,7 @@ function getOrCreateNetworkPlayerId(){
 // 30s) - mesmo padrao ja usado na Sobrevivencia: anda aleatoriamente por
 // celulas livres, e planta bomba com chance quando o oponente esta perto.
 // Nomes realistas para os bots preencherem a vaga (em vez de "Bot 1", "Bot 2")
-const BOT_NAMES = ['Kael_BR','ArenaGhost','ShadowRune77','MysticBlaze','VaneX','Runa_Sombria','ThunderPeak','NightBlade22','Ecliptor','FeitiçoNoturno'];
+const BOT_NAMES = ['Kael_BR','ArenaGhost','ShadowRune77','MysticBlaze','VaneX','Runa_Sombria','ThunderPeak','NightBlade22','Ecliptor','FeitiÃ§oNoturno'];
 
 // Sorteia identidade e "personalidade" do bot para esta partida - reacao e
 // acerto variam a cada vez, pra nao parecer sempre o mesmo jogador perfeito.
@@ -6947,3 +6947,4 @@ checkAuthAndBoot();
 </script>
 </body>
 </html>
+
