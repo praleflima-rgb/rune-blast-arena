@@ -1596,37 +1596,49 @@ function getDirectionalSprite(key, dir){
   return { img: img, mirror: mirror };
 }
 
-// Sprites de CORRIDA ANIMADA (ciclo de passos de alta definicao)
-const CHARACTER_RUN_SPRITE_SOURCES = {
-  vesper: [
-    'assets/vesper_run_1.png',
-    'assets/vesper_run_2.png',
-    'assets/vesper_run_3.png',
-    'assets/vesper_run_4.png',
-    'assets/vesper_run_5.png',
-    'assets/vesper_run_6.png'
-  ]
+// Sprites de CORRIDA ANIMADA - carregados via spritesheet (3 colunas x 2 linhas = 6 frames)
+// O spritesheet do Vesper tem todos os frames virados para a ESQUERDA,
+// entao espelhamos horizontalmente somente quando a direcao e DIREITA.
+const CHARACTER_RUN_SPRITESHEETS = {
+  vesper: { src: 'assets/vesper_spritesheet.jpg', cols: 3, rows: 2 }
 };
 const characterRunSpriteImages = {};
+
 (function preloadRunSprites(){
-  Object.keys(CHARACTER_RUN_SPRITE_SOURCES).forEach(function(key){
-    characterRunSpriteImages[key] = CHARACTER_RUN_SPRITE_SOURCES[key].map(function(src){
-      const img = new Image();
-      img.src = src;
-      return img;
-    });
+  Object.keys(CHARACTER_RUN_SPRITESHEETS).forEach(function(key){
+    const def = CHARACTER_RUN_SPRITESHEETS[key];
+    const sheet = new Image();
+    sheet.onload = function(){
+      const totalFrames = def.cols * def.rows;
+      const fw = Math.floor(sheet.naturalWidth  / def.cols);
+      const fh = Math.floor(sheet.naturalHeight / def.rows);
+      const frames = [];
+      for(let i = 0; i < totalFrames; i++){
+        const col = i % def.cols;
+        const row = Math.floor(i / def.cols);
+        const oc = document.createElement('canvas');
+        oc.width  = fw;
+        oc.height = fh;
+        oc.getContext('2d').drawImage(sheet, col*fw, row*fh, fw, fh, 0, 0, fw, fh);
+        frames.push(oc);
+      }
+      characterRunSpriteImages[key] = frames;
+    };
+    sheet.src = def.src;
   });
 })();
 
 function getCharacterRunSprite(key, dir, now){
   const list = characterRunSpriteImages[key];
   if(!list || !list.length) return null;
-  // Ciclo de corrida fluido a ~10-12 fps
-  const frameIdx = Math.floor((now / 95) % list.length);
-  const img = list[frameIdx];
-  if(!img || !img.complete || img.naturalWidth === 0) return null;
-  const mirror = (dir === 'left');
-  return { img: img, mirror: mirror };
+  // ~12 fps - ciclo fluido sem ser rapido demais
+  const frameIdx = Math.floor((now / 80) % list.length);
+  const frame = list[frameIdx];
+  if(!frame) return null;
+  // Todos os frames do Vesper apontam para a ESQUERDA:
+  // espelha apenas quando andando para a DIREITA
+  const mirror = (dir === 'right');
+  return { img: frame, mirror: mirror };
 }
 
 const BOSS_STAGE_SIZE = [1.8, 2.3, 2.9];
@@ -6589,8 +6601,11 @@ function drawCharacterSprite(ent, img, now, sizeScale, forceMirror, isAnimatedRu
   const scale = sizeScale || 1;
   const px = offsetX + ent.x*tileSize;
   const py = offsetY + ent.y*tileSize;
-  const drawH = tileSize*1.06*scale; // proporcional ao cenario
-  const drawW = drawH * (img.naturalWidth/img.naturalHeight);
+  // Suporta tanto HTMLImageElement (naturalWidth) quanto HTMLCanvasElement (.width)
+  const srcW = img.naturalWidth  || img.width  || 1;
+  const srcH = img.naturalHeight || img.height || 1;
+  const drawH = tileSize*1.06*scale;
+  const drawW = drawH * (srcW / srcH);
 
   const walkPhase = animT*10;
   // Se ja e um quadro de animacao real de corrida, nao precisa de deformacao artificial
