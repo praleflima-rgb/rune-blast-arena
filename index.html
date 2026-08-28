@@ -1596,11 +1596,44 @@ function getDirectionalSprite(key, dir){
   return { img: img, mirror: mirror };
 }
 
-// Sprites de CORRIDA ANIMADA - carregados via spritesheet (3 colunas x 2 linhas = 6 frames)
-// O spritesheet do Vesper tem todos os frames virados para a ESQUERDA,
-// entao espelhamos horizontalmente somente quando a direcao e DIREITA.
+// Sprites de CORRIDA ANIMADA DIRECIONAIS (6 frames dedicados por direcao: down, up, right; left espelha right)
+const CHARACTER_DIRECTIONAL_RUN_SOURCES = {
+  vesper: {
+    down: [
+      'assets/vesper_run_down_1.png', 'assets/vesper_run_down_2.png',
+      'assets/vesper_run_down_3.png', 'assets/vesper_run_down_4.png',
+      'assets/vesper_run_down_5.png', 'assets/vesper_run_down_6.png'
+    ],
+    up: [
+      'assets/vesper_run_up_1.png', 'assets/vesper_run_up_2.png',
+      'assets/vesper_run_up_3.png', 'assets/vesper_run_up_4.png',
+      'assets/vesper_run_up_5.png', 'assets/vesper_run_up_6.png'
+    ],
+    right: [
+      'assets/vesper_run_right_1.png', 'assets/vesper_run_right_2.png',
+      'assets/vesper_run_right_3.png', 'assets/vesper_run_right_4.png',
+      'assets/vesper_run_right_5.png', 'assets/vesper_run_right_6.png'
+    ]
+  }
+};
+const characterDirectionalRunImages = {};
+
+(function preloadDirectionalRunSprites(){
+  Object.keys(CHARACTER_DIRECTIONAL_RUN_SOURCES).forEach(function(key){
+    const dirMap = CHARACTER_DIRECTIONAL_RUN_SOURCES[key];
+    characterDirectionalRunImages[key] = {};
+    Object.keys(dirMap).forEach(function(dir){
+      characterDirectionalRunImages[key][dir] = dirMap[dir].map(function(src){
+        const img = new Image();
+        img.src = src;
+        return img;
+      });
+    });
+  });
+})();
+
 const CHARACTER_RUN_SPRITESHEETS = {
-  vesper: { src: 'assets/vesper_spritesheet.jpg', cols: 3, rows: 2 }
+  vesper: { src: 'assets/vesper_sheet_right.png', cols: 6, rows: 1 }
 };
 const characterRunSpriteImages = {};
 
@@ -1629,15 +1662,32 @@ const characterRunSpriteImages = {};
 })();
 
 function getCharacterRunSprite(key, dir, now){
+  // 1. Tenta carregar os frames direcionais dedicados (down / up / right)
+  const dirSet = characterDirectionalRunImages[key];
+  if(dirSet){
+    let lookupDir = dir || 'down';
+    let mirror = false;
+    if(lookupDir === 'left'){
+      lookupDir = 'right';
+      mirror = true;
+    }
+    const frames = dirSet[lookupDir] || dirSet.down;
+    if(frames && frames.length){
+      const loaded = frames.every(function(f){ return f && f.complete && f.naturalWidth > 0; });
+      if(loaded){
+        const frameIdx = Math.floor((now / 80) % frames.length);
+        return { img: frames[frameIdx], mirror: mirror };
+      }
+    }
+  }
+
+  // 2. Fallback para spritesheet unico caso exista
   const list = characterRunSpriteImages[key];
   if(!list || !list.length) return null;
-  // ~12 fps - ciclo fluido sem ser rapido demais
   const frameIdx = Math.floor((now / 80) % list.length);
   const frame = list[frameIdx];
   if(!frame) return null;
-  // Todos os frames do Vesper apontam para a ESQUERDA:
-  // espelha apenas quando andando para a DIREITA
-  const mirror = (dir === 'right');
+  const mirror = (dir === 'left');
   return { img: frame, mirror: mirror };
 }
 

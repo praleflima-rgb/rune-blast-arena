@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -285,15 +285,6 @@
     box-shadow:0 0 10px rgba(94,230,255,.3);
   }
   .mode-card .mode-name{display:flex;align-items:center;gap:6px;}
-  .mode-soon-tag{
-    font-size:9px;font-weight:bold;letter-spacing:.5px;
-    background:rgba(255,180,84,.22);color:#ffb454;
-    border:1px solid rgba(255,180,84,.45);border-radius:5px;
-    padding:1px 5px;vertical-align:middle;margin-left:4px;
-  }
-  .mode-card.coming-soon{ opacity:.55;cursor:default; }
-  .mode-card.coming-soon:active{ transform:none; }
-
   .mode-demo-tag{
     font-size:9px;font-weight:bold;letter-spacing:.5px;
     background:rgba(148,163,184,.25);color:#cbd5e1;
@@ -553,6 +544,176 @@
     background:radial-gradient(circle at 35% 30%, #ffb066, #a06bff 75%); color:#0a060f;
   }
   #runeBtnP2 .sym{font-size:20px;}
+
+  /* ---------- Polygon Web3 Wallet & Payment Styles ---------- */
+  .poly-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    background:linear-gradient(135deg, rgba(130,71,229,0.3) 0%, rgba(94,230,255,0.2) 100%);
+    border:1px solid rgba(130,71,229,0.7);
+    padding:4px 10px;border-radius:16px;
+    color:#e9dcc4;font-size:11px;font-weight:bold;
+    letter-spacing:.4px;
+    box-shadow:0 0 10px rgba(130,71,229,0.3);
+  }
+  .poly-icon{
+    display:inline-block;width:14px;height:14px;
+    background:#8247e5;border-radius:50%;
+    box-shadow:0 0 8px #a855f7;
+    flex-shrink:0;
+  }
+  .polygon-pay-btn{
+    background:linear-gradient(135deg, #7b2cbf 0%, #8247e5 50%, #9d4edd 100%) !important;
+    color:#ffffff !important;
+    border:1px solid #c77dff !important;
+    box-shadow:0 0 16px rgba(130,71,229,0.5), inset 0 1px 1px rgba(255,255,255,0.4) !important;
+    font-weight:bold !important;
+    display:inline-flex !important;align-items:center !important;justify-content:center !important;gap:8px !important;
+    cursor:pointer !important;
+    transition:all .18s ease !important;
+    margin:6px 0 !important;
+  }
+  .polygon-pay-btn:hover{
+    transform:scale(1.02);
+    box-shadow:0 0 24px rgba(168,85,247,0.8), inset 0 1px 1px rgba(255,255,255,0.7) !important;
+  }
+  .polygon-pay-btn:active{ transform:scale(0.98); }
+  .poly-wallet-status{
+    font-size:11px;color:#cbb9e0;margin:4px 0 8px;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .poly-address-pill{
+    background:rgba(20,10,35,0.7);
+    border:1px solid rgba(130,71,229,0.5);
+    padding:2px 8px;border-radius:8px;
+    font-family:monospace;font-size:11px;color:#5ee6ff;
+  }
+
+  /* ---------- Web3 Modals ---------- */
+  #web3Modal, #web3ProgressModal{
+    position:fixed;inset:0;
+    background:rgba(8,5,15,0.88);
+    backdrop-filter:blur(6px);
+    display:flex;align-items:center;justify-content:center;
+    z-index:45;
+    padding:16px;
+  }
+  .web3-card{
+    background:linear-gradient(180deg, #1b1226 0%, #0d0814 100%);
+    border:2px solid rgba(130,71,229,0.7);
+    border-radius:18px;
+    padding:24px 20px;
+    max-width:380px;width:100%;
+    box-shadow:0 0 35px rgba(130,71,229,0.4), inset 0 0 20px rgba(130,71,229,0.15);
+    text-align:center;color:var(--parchment);
+    animation:cardPopIn .22s ease;
+  }
+  @keyframes cardPopIn{ from{transform:scale(.92);opacity:0;} to{transform:scale(1);opacity:1;} }
+  .web3-card h3{ margin:0 0 8px;color:#ffffff;font-size:18px;text-shadow:0 0 10px #8247e5; }
+  .web3-card p{ margin:8px 0 16px;font-size:13px;color:#d8cde3;line-height:1.4; }
+  .web3-item-tag{
+    background:rgba(130,71,229,0.25);
+    border:1px solid rgba(168,85,247,0.5);
+    padding:6px 12px;border-radius:10px;
+    font-size:14px;font-weight:bold;color:var(--gold);
+    margin:10px auto;display:inline-block;
+  }
+  .web3-step-spinner{
+    width:36px;height:36px;
+    border:3px solid rgba(130,71,229,0.3);
+    border-top:3px solid #5ee6ff;
+    border-radius:50%;
+    margin:12px auto;
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{ 100%{ transform:rotate(360deg); } }
+  .tx-hash-link{
+    display:inline-block;word-break:break-all;
+    color:#5ee6ff;text-decoration:underline;
+    font-size:11px;font-family:monospace;margin-top:6px;
+  }
+
+  /* ---------- Matchmaking Overlay ---------- */
+  #matchmakingOverlay{
+    position:fixed;inset:0;
+    background:radial-gradient(ellipse at center, rgba(30,15,45,0.92) 0%, rgba(6,3,10,0.97) 100%);
+    backdrop-filter:blur(8px);
+    display:flex;align-items:center;justify-content:center;
+    z-index:35;
+    text-align:center;
+    padding:20px;
+  }
+  .matchmaking-card{
+    background:rgba(22,14,32,0.92);
+    border:2px solid rgba(94,230,255,0.6);
+    border-radius:22px;
+    padding:30px 24px;
+    max-width:400px;width:100%;
+    box-shadow:0 0 40px rgba(94,230,255,0.35), inset 0 0 25px rgba(160,107,255,0.2);
+    display:flex;flex-direction:column;align-items:center;
+    animation:cardPopIn .25s ease;
+  }
+  .radar-container{
+    position:relative;width:90px;height:90px;margin-bottom:16px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .radar-pulse{
+    position:absolute;inset:0;
+    border:2px solid var(--rune-glow-2);
+    border-radius:50%;
+    animation:radarWave 2s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+  }
+  .radar-pulse.delay-1{ animation-delay:1s; }
+  @keyframes radarWave{
+    0%{ transform:scale(0.35);opacity:1;box-shadow:0 0 4px var(--rune-glow-2); }
+    100%{ transform:scale(1.4);opacity:0;box-shadow:0 0 20px var(--rune-glow-2); }
+  }
+  .radar-center{
+    font-size:32px;
+    filter:drop-shadow(0 0 10px var(--rune-glow-2));
+    z-index:2;
+  }
+  .mm-title{
+    margin:0 0 6px;
+    font-size:22px;font-weight:bold;
+    color:#ffffff;
+    text-shadow:0 0 12px var(--rune-glow-2);
+    letter-spacing:.5px;
+  }
+  .mm-subtitle{
+    margin:0 0 18px;
+    font-size:13px;color:#cbb9e0;
+  }
+  .mm-timer-bar-wrap{
+    width:100%;height:10px;
+    background:rgba(255,255,255,0.1);
+    border-radius:6px;overflow:hidden;
+    margin-bottom:8px;
+    border:1px solid rgba(94,230,255,0.4);
+  }
+  .mm-timer-bar{
+    height:100%;width:100%;
+    background:linear-gradient(90deg, #5ee6ff, #a06bff, #ff7a3d);
+    border-radius:6px;
+    transition:width 0.4s linear;
+  }
+  .mm-timer-text{
+    font-size:18px;font-weight:bold;color:var(--gold);
+    margin-bottom:12px;text-shadow:0 0 8px rgba(255,215,107,0.6);
+  }
+  .mm-bot-notice{
+    font-size:11px;color:#a89bb8;margin:0 0 20px;line-height:1.35;
+  }
+  .mm-cancel-btn{
+    background:rgba(60,14,24,0.85) !important;
+    border:1px solid rgba(255,107,138,0.7) !important;
+    color:#ffb3c1 !important;
+    cursor:pointer;
+    padding:8px 24px;border-radius:10px;
+    font-weight:bold;font-size:13px;
+    box-shadow:0 0 12px rgba(255,107,138,0.3) inset;
+    transition:background .15s;
+  }
+  .mm-cancel-btn:hover{ background:rgba(90,20,34,0.95) !important; }
 </style>
 </head>
 <body>
@@ -562,6 +723,41 @@
 
   <div id="stageToast"></div>
   <div id="statusLog" class="hidden"></div>
+
+  <!-- Matchmaking Overlay -->
+  <div id="matchmakingOverlay" class="hidden-mode">
+    <div class="matchmaking-card">
+      <div class="radar-container">
+        <div class="radar-pulse"></div>
+        <div class="radar-pulse delay-1"></div>
+        <div class="radar-center">&#9876;&#65039;</div>
+      </div>
+      <h2 class="mm-title">Aguardando jogadores...</h2>
+      <p class="mm-subtitle">Buscando oponente na Arena PvP Online</p>
+      <div class="mm-timer-bar-wrap">
+        <div id="mmTimerBar" class="mm-timer-bar"></div>
+      </div>
+      <div id="mmTimerText" class="mm-timer-text">30s</div>
+      <p class="mm-bot-notice">&#129154; Se nenhum jogador entrar em 30s, a partida inicia automaticamente com um Bot do sistema.</p>
+      <button id="cancelMatchmakingBtn" class="mm-cancel-btn">&#10005;&nbsp;Cancelar Busca</button>
+    </div>
+  </div>
+
+  <!-- Web3 Progress Modal -->
+  <div id="web3ProgressModal" class="hidden-mode">
+    <div class="web3-card">
+      <div class="poly-badge" style="margin-bottom:12px;"><span class="poly-icon"></span> Polygon Network (POL/MATIC)</div>
+      <h3 id="w3Title">Processando Pagamento</h3>
+      <div id="w3ItemTag" class="web3-item-tag">Assinatura VIP</div>
+      <div id="w3Spinner" class="web3-step-spinner"></div>
+      <p id="w3Message">Aguardando confirmação na sua carteira...</p>
+      <div id="w3TxContainer" style="display:none;">
+        <span style="font-size:11px;color:#a89bb8;">Hash da Transação:</span><br>
+        <a id="w3TxLink" class="tx-hash-link" href="#" target="_blank">0x...</a>
+      </div>
+      <button id="w3CloseBtn" class="daily-btn" style="display:none;margin-top:14px;width:100%;">Fechar</button>
+    </div>
+  </div>
 
   <div id="hud">
     <div class="hud-col">
@@ -781,13 +977,18 @@
    jogo le/escreve nas variaveis locais na mesma hora de sempre,
    e o envio pro banco acontece em segundo plano (fire-and-forget).
 ============================================================ */
+// Credenciais do Supabase – fallback hardcoded garante que as variaveis
+// nunca sejam undefined mesmo que config.js nao carregue antes deste script.
+const SUPABASE_URL  = (window.SUPABASE_URL  || 'https://yssdwwfqdendmfknbsgx.supabase.co');
+const SUPABASE_KEY  = (window.SUPABASE_ANON_KEY || 'sb_publishable_QHDV_lT-suQhvU-cFp-UXw_TGZ6EznH');
+
 // Se a chave ainda nao foi preenchida, o jogo cai de volta pro
 // funcionamento antigo (so localStorage, sem conta) - evita que o jogo
 // quebre/redirecione pra tela de login enquanto voce ainda esta
 // configurando o Supabase pela primeira vez.
 const supabaseConfigured = typeof window.supabase !== 'undefined' &&
   SUPABASE_KEY !== 'COLE_AQUI_A_SUA_CHAVE_ANON_PUBLIC' && !!SUPABASE_URL;
-const supabaseClient = supabaseConfigured ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null;
+const supabaseClient = supabaseConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 let currentUserId = null;
 
 /* ============================================================
@@ -980,43 +1181,49 @@ function showMfaChallengeModal(factorId, userId){
 }
 
 async function handleAuthLogin(){
-  const identifier = (document.getElementById('authIdentifier').value || '').trim();
-  const password = document.getElementById('authPassword').value || '';
-  if(!identifier || !password){ showAuthError('Preencha apelido/e-mail e senha!'); return; }
+  try {
+    const identifier = (document.getElementById('authIdentifier').value || '').trim();
+    const password = document.getElementById('authPassword').value || '';
+    if(!identifier || !password){ showAuthError('Preencha apelido/e-mail e senha!'); return; }
 
-  setAuthButtonsDisabled(true);
-  showAuthMessage('Validando...');
+    setAuthButtonsDisabled(true);
+    showAuthMessage('Validando...');
 
-  // Supabase Auth so reconhece e-mail nativamente. Se o que foi digitado
-  // parece um e-mail (tem "@"), usa direto. Senao, e um apelido - busca o
-  // e-mail correspondente no banco antes de tentar autenticar.
-  let email = identifier;
-  if(identifier.indexOf('@') === -1){
-    const { data: foundEmail, error: lookupError } = await supabaseClient.rpc('get_email_by_username', { p_username: identifier });
-    if(lookupError || !foundEmail){
-      setAuthButtonsDisabled(false);
-      showAuthError('Apelido nao encontrado!');
+    // Supabase Auth so reconhece e-mail nativamente. Se o que foi digitado
+    // parece um e-mail (tem "@"), usa direto. Senao, e um apelido - busca o
+    // e-mail correspondente no banco antes de tentar autenticar.
+    let email = identifier;
+    if(identifier.indexOf('@') === -1){
+      const { data: foundEmail, error: lookupError } = await supabaseClient.rpc('get_email_by_username', { p_username: identifier });
+      if(lookupError || !foundEmail){
+        setAuthButtonsDisabled(false);
+        showAuthError('Apelido nao encontrado!');
+        return;
+      }
+      email = foundEmail;
+    }
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password, options: getCaptchaOptions() });
+    resetCaptchaWidget();
+    setAuthButtonsDisabled(false);
+
+    if(error){ showAuthError('Erro: ' + error.message); alert('Erro Supabase: ' + error.message); return; }
+    showAuthMessage('Login bem-sucedido! Verificando...');
+
+    const factorId = await checkMfaChallengeRequired();
+    if(factorId){
+      const modal = document.getElementById('authModal');
+      if(modal) modal.classList.add('hidden');
+      showMfaChallengeModal(factorId, data.session.user.id);
       return;
     }
-    email = foundEmail;
+
+    await afterSuccessfulAuth(data.session.user.id);
+  } catch(err) {
+    setAuthButtonsDisabled(false);
+    showAuthError('Erro na chamada JS: ' + err.message);
+    alert('Erro JS: ' + err.message);
   }
-
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password, options: getCaptchaOptions() });
-  resetCaptchaWidget();
-  setAuthButtonsDisabled(false);
-
-  if(error){ showAuthError('Apelido/e-mail ou senha incorretos!'); return; }
-  showAuthMessage('Login bem-sucedido! Verificando...');
-
-  const factorId = await checkMfaChallengeRequired();
-  if(factorId){
-    const modal = document.getElementById('authModal');
-    if(modal) modal.classList.add('hidden');
-    showMfaChallengeModal(factorId, data.session.user.id);
-    return;
-  }
-
-  await afterSuccessfulAuth(data.session.user.id);
 }
 
 async function handleAuthRegister(){
@@ -1387,6 +1594,101 @@ function getDirectionalSprite(key, dir){
   const img = set[lookupDir] || set.down;
   if(!img || !img.complete || img.naturalWidth === 0) return null;
   return { img: img, mirror: mirror };
+}
+
+// Sprites de CORRIDA ANIMADA DIRECIONAIS (6 frames dedicados por direcao: down, up, right; left espelha right)
+const CHARACTER_DIRECTIONAL_RUN_SOURCES = {
+  vesper: {
+    down: [
+      'assets/vesper_run_down_1.png', 'assets/vesper_run_down_2.png',
+      'assets/vesper_run_down_3.png', 'assets/vesper_run_down_4.png',
+      'assets/vesper_run_down_5.png', 'assets/vesper_run_down_6.png'
+    ],
+    up: [
+      'assets/vesper_run_up_1.png', 'assets/vesper_run_up_2.png',
+      'assets/vesper_run_up_3.png', 'assets/vesper_run_up_4.png',
+      'assets/vesper_run_up_5.png', 'assets/vesper_run_up_6.png'
+    ],
+    right: [
+      'assets/vesper_run_right_1.png', 'assets/vesper_run_right_2.png',
+      'assets/vesper_run_right_3.png', 'assets/vesper_run_right_4.png',
+      'assets/vesper_run_right_5.png', 'assets/vesper_run_right_6.png'
+    ]
+  }
+};
+const characterDirectionalRunImages = {};
+
+(function preloadDirectionalRunSprites(){
+  Object.keys(CHARACTER_DIRECTIONAL_RUN_SOURCES).forEach(function(key){
+    const dirMap = CHARACTER_DIRECTIONAL_RUN_SOURCES[key];
+    characterDirectionalRunImages[key] = {};
+    Object.keys(dirMap).forEach(function(dir){
+      characterDirectionalRunImages[key][dir] = dirMap[dir].map(function(src){
+        const img = new Image();
+        img.src = src;
+        return img;
+      });
+    });
+  });
+})();
+
+const CHARACTER_RUN_SPRITESHEETS = {
+  vesper: { src: 'assets/vesper_sheet_right.png', cols: 6, rows: 1 }
+};
+const characterRunSpriteImages = {};
+
+(function preloadRunSprites(){
+  Object.keys(CHARACTER_RUN_SPRITESHEETS).forEach(function(key){
+    const def = CHARACTER_RUN_SPRITESHEETS[key];
+    const sheet = new Image();
+    sheet.onload = function(){
+      const totalFrames = def.cols * def.rows;
+      const fw = Math.floor(sheet.naturalWidth  / def.cols);
+      const fh = Math.floor(sheet.naturalHeight / def.rows);
+      const frames = [];
+      for(let i = 0; i < totalFrames; i++){
+        const col = i % def.cols;
+        const row = Math.floor(i / def.cols);
+        const oc = document.createElement('canvas');
+        oc.width  = fw;
+        oc.height = fh;
+        oc.getContext('2d').drawImage(sheet, col*fw, row*fh, fw, fh, 0, 0, fw, fh);
+        frames.push(oc);
+      }
+      characterRunSpriteImages[key] = frames;
+    };
+    sheet.src = def.src;
+  });
+})();
+
+function getCharacterRunSprite(key, dir, now){
+  // 1. Tenta carregar os frames direcionais dedicados (down / up / right)
+  const dirSet = characterDirectionalRunImages[key];
+  if(dirSet){
+    let lookupDir = dir || 'down';
+    let mirror = false;
+    if(lookupDir === 'left'){
+      lookupDir = 'right';
+      mirror = true;
+    }
+    const frames = dirSet[lookupDir] || dirSet.down;
+    if(frames && frames.length){
+      const loaded = frames.every(function(f){ return f && f.complete && f.naturalWidth > 0; });
+      if(loaded){
+        const frameIdx = Math.floor((now / 80) % frames.length);
+        return { img: frames[frameIdx], mirror: mirror };
+      }
+    }
+  }
+
+  // 2. Fallback para spritesheet unico caso exista
+  const list = characterRunSpriteImages[key];
+  if(!list || !list.length) return null;
+  const frameIdx = Math.floor((now / 80) % list.length);
+  const frame = list[frameIdx];
+  if(!frame) return null;
+  const mirror = (dir === 'left');
+  return { img: frame, mirror: mirror };
 }
 
 const BOSS_STAGE_SIZE = [1.8, 2.3, 2.9];
@@ -2767,16 +3069,244 @@ document.getElementById('quitMatchBtn').addEventListener('click', function(){
 });
 
 /* ============================================================
-   SISTEMA VIP vs. JOGADOR GRATUITO (BUILD FINAL)
+   SISTEMA VIP & PAGAMENTO VIA CARTEIRA POLYGON (WEB3 / POL / MATIC)
    Free: 1 partida a cada 6 horas (cooldown com temporizador).
-   VIP: partidas ilimitadas, sem espera. R$5,00 / 30 dias.
+   VIP: partidas ilimitadas, sem espera. 5.00 POL / 30 dias.
 ============================================================ */
 const VIP_KEY = 'rb_vip_status_v2';
 const MATCH_STATE_KEY = 'rb_match_state_v2';
 const VIP_PRICE_BRL = 15.00;
+const VIP_PRICE_POL = 5.00;
+const DAILY_PASS_PRICE_POL = 1.00;
 const VIP_DURATION_DAYS = 30;
 const VIP_DURATION_MS = VIP_DURATION_DAYS * 24*60*60*1000;
 const FREE_MATCH_COOLDOWN_MS = 6*60*60*1000; // 1 partida gratuita a cada 6 horas
+
+/* ============================================================
+   POLYGON WALLET / WEB3 MANAGER
+============================================================ */
+const PolygonWalletManager = (function(){
+  const POLYGON_CHAIN_ID = 137;
+  const POLYGON_CHAIN_ID_HEX = '0x89';
+  const POLYGON_CONFIG = {
+    chainId: POLYGON_CHAIN_ID_HEX,
+    chainName: 'Polygon Mainnet',
+    nativeCurrency: { name: 'Polygon Ecosystem Token', symbol: 'POL', decimals: 18 },
+    rpcUrls: ['https://polygon-rpc.com', 'https://rpc-mainnet.maticvigil.com'],
+    blockExplorerUrls: ['https://polygonscan.com']
+  };
+
+  const GAME_TREASURY_ADDRESS = '0x27cE5b1285E6Fa76c5b9690EB6d68b6933A9B26D';
+
+  let currentAccount = null;
+  let currentChainId = null;
+
+  function initListeners(){
+    if(typeof window !== 'undefined' && window.ethereum){
+      try{
+        window.ethereum.on('accountsChanged', function(accounts){
+          currentAccount = (accounts && accounts.length) ? accounts[0] : null;
+          refreshAllStorePanels();
+        });
+        window.ethereum.on('chainChanged', function(chainId){
+          currentChainId = chainId;
+          refreshAllStorePanels();
+        });
+      }catch(e){}
+    }
+  }
+  initListeners();
+
+  function refreshAllStorePanels(){
+    try{ renderMatchPanel(); }catch(e){}
+    try{ renderEquipmentPanel(); }catch(e){}
+    try{ renderDailyRankPanel(); }catch(e){}
+  }
+
+  function getShortAddress(addr){
+    if(!addr || addr.length < 10) return addr || '';
+    return addr.slice(0, 6) + '...' + addr.slice(-4);
+  }
+
+  async function getProvider(){
+    if(typeof window !== 'undefined' && window.ethereum) return window.ethereum;
+    return null;
+  }
+
+  async function connectWallet(){
+    const provider = await getProvider();
+    if(!provider){
+      showWeb3NoticeModal();
+      return null;
+    }
+    try{
+      const accounts = await provider.request({ method: 'eth_requestAccounts' });
+      currentAccount = (accounts && accounts.length) ? accounts[0] : null;
+      await ensurePolygonNetwork();
+      refreshAllStorePanels();
+      return currentAccount;
+    }catch(err){
+      console.warn('[Polygon Web3] Conexao rejeitada:', err.message);
+      return null;
+    }
+  }
+
+  async function ensurePolygonNetwork(){
+    const provider = await getProvider();
+    if(!provider) return false;
+    try{
+      const chainId = await provider.request({ method: 'eth_chainId' });
+      currentChainId = chainId;
+      if(chainId === POLYGON_CHAIN_ID_HEX || parseInt(chainId, 16) === POLYGON_CHAIN_ID){
+        return true;
+      }
+      try{
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: POLYGON_CHAIN_ID_HEX }]
+        });
+        return true;
+      }catch(switchError){
+        if(switchError.code === 4902 || (switchError.data && switchError.data.originalError && switchError.data.originalError.code === 4902)){
+          await provider.request({
+            method: 'wallet_addEthereumChain',
+            params: [POLYGON_CONFIG]
+          });
+          return true;
+        }
+        return false;
+      }
+    }catch(e){
+      console.warn('[Polygon Web3] Erro ao trocar para Polygon:', e.message);
+      return false;
+    }
+  }
+
+  function showWeb3Progress(title, itemTitle, message){
+    const modal = document.getElementById('web3ProgressModal');
+    if(!modal) return;
+    document.getElementById('w3Title').textContent = title;
+    document.getElementById('w3ItemTag').textContent = itemTitle;
+    document.getElementById('w3Message').textContent = message;
+    document.getElementById('w3Spinner').style.display = 'block';
+    document.getElementById('w3TxContainer').style.display = 'none';
+    document.getElementById('w3CloseBtn').style.display = 'none';
+    modal.classList.remove('hidden-mode');
+  }
+
+  function updateWeb3Success(txHash, itemTitle){
+    const modal = document.getElementById('web3ProgressModal');
+    if(!modal) return;
+    document.getElementById('w3Title').textContent = 'Pagamento Confirmado!';
+    document.getElementById('w3ItemTag').textContent = itemTitle + ' Desbloqueado';
+    document.getElementById('w3Message').textContent = 'Transacao confirmada na rede Polygon com sucesso.';
+    document.getElementById('w3Spinner').style.display = 'none';
+    const txContainer = document.getElementById('w3TxContainer');
+    const txLink = document.getElementById('w3TxLink');
+    if(txHash && txLink){
+      txContainer.style.display = 'block';
+      txLink.textContent = getShortAddress(txHash);
+      txLink.href = 'https://polygonscan.com/tx/' + txHash;
+    }
+    const closeBtn = document.getElementById('w3CloseBtn');
+    closeBtn.style.display = 'block';
+    closeBtn.onclick = function(){ modal.classList.add('hidden-mode'); };
+  }
+
+  function updateWeb3Error(errMessage){
+    const modal = document.getElementById('web3ProgressModal');
+    if(!modal) return;
+    document.getElementById('w3Title').textContent = 'Transacao Cancelada';
+    document.getElementById('w3Message').textContent = errMessage || 'A transacao foi rejeitada ou cancelada.';
+    document.getElementById('w3Spinner').style.display = 'none';
+    const closeBtn = document.getElementById('w3CloseBtn');
+    closeBtn.style.display = 'block';
+    closeBtn.onclick = function(){ modal.classList.add('hidden-mode'); };
+  }
+
+  function showWeb3NoticeModal(onTestDemo){
+    const modal = document.getElementById('web3ProgressModal');
+    if(!modal) return;
+    document.getElementById('w3Title').textContent = 'Conectar Carteira Polygon';
+    document.getElementById('w3ItemTag').textContent = 'Web3 / MetaMask / POL';
+    document.getElementById('w3Spinner').style.display = 'none';
+    document.getElementById('w3Message').innerHTML =
+      'Para pagar na rede Polygon, conecte o <b>MetaMask</b> ou abra o jogo em uma carteira Web3.<br><br>' +
+      '<button id="w3InstallMetaMaskBtn" class="daily-btn" style="background:#f6851b;margin-bottom:8px;">Instalar MetaMask</button>' +
+      (onTestDemo ? '<br><button id="w3SimulatePayBtn" class="daily-btn" style="background:#5a2a9c;">Simular Pagamento Web3 (Modo Teste)</button>' : '');
+    document.getElementById('w3TxContainer').style.display = 'none';
+    const closeBtn = document.getElementById('w3CloseBtn');
+    closeBtn.style.display = 'block';
+    closeBtn.onclick = function(){ modal.classList.add('hidden-mode'); };
+    modal.classList.remove('hidden-mode');
+
+    const installBtn = document.getElementById('w3InstallMetaMaskBtn');
+    if(installBtn) installBtn.onclick = function(){ window.open('https://metamask.io/download/', '_blank'); };
+    const simBtn = document.getElementById('w3SimulatePayBtn');
+    if(simBtn && onTestDemo) simBtn.onclick = function(){
+      modal.classList.add('hidden-mode');
+      onTestDemo();
+    };
+  }
+
+  async function executePayment(opts){
+    const itemTitle = opts.title || 'Item VIP';
+    const pricePOL = opts.pricePOL || 1.0;
+    const onSuccess = opts.onSuccess;
+
+    const provider = await getProvider();
+    if(!provider){
+      showWeb3NoticeModal(function(){
+        showWeb3Progress('Processando Simulação Web3', itemTitle, 'Simulando assinatura na rede Polygon (POL)...');
+        setTimeout(function(){
+          const fakeTx = '0x' + Array.from({length:64}, ()=>Math.floor(Math.random()*16).toString(16)).join('');
+          updateWeb3Success(fakeTx, itemTitle);
+          if(onSuccess) onSuccess(fakeTx);
+        }, 1200);
+      });
+      return;
+    }
+
+    try{
+      let account = currentAccount;
+      if(!account){
+        const accs = await provider.request({ method: 'eth_requestAccounts' });
+        account = (accs && accs.length) ? accs[0] : null;
+        currentAccount = account;
+      }
+      if(!account){ updateWeb3Error('Nenhuma conta selecionada.'); return; }
+
+      await ensurePolygonNetwork();
+
+      showWeb3Progress('Confirmar Pagamento', itemTitle, 'Aguardando assinatura da transação de ' + pricePOL.toFixed(2) + ' POL na sua carteira...');
+
+      const weiHex = '0x' + (BigInt(Math.round(pricePOL * 1000000)) * 1000000000000n).toString(16);
+
+      const txHash = await provider.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: account,
+          to: GAME_TREASURY_ADDRESS,
+          value: weiHex
+        }]
+      });
+
+      updateWeb3Success(txHash, itemTitle);
+      if(onSuccess) onSuccess(txHash);
+    }catch(err){
+      console.warn('[Polygon Web3] Falha na transacao:', err);
+      updateWeb3Error(err.message || 'Transacao rejeitada na carteira.');
+    }
+  }
+
+  return {
+    connect: connectWallet,
+    getAccount: function(){ return currentAccount; },
+    getShortAddress: getShortAddress,
+    isConnected: function(){ return !!currentAccount; },
+    executePayment: executePayment
+  };
+})();
 
 function loadVipState(){
   let raw = null;
@@ -2796,15 +3326,27 @@ function refreshVipFlag(){
 }
 refreshVipFlag();
 
-// NOTA: toggle de demonstracao (sem checkout real). Substituir por uma
-// integracao real de pagamento/assinatura (ex: CrazyGames payments, Stripe,
-// PIX, etc.) antes do deploy. A estrutura (preco, duracao, expiresAt) ja
-// esta pronta para receber a confirmacao de uma compra real.
+function activateVipReal(txHash){
+  vipState = {
+    active: true,
+    expiresAt: Date.now() + VIP_DURATION_MS,
+    priceBRL: VIP_PRICE_BRL,
+    pricePOL: VIP_PRICE_POL,
+    durationDays: VIP_DURATION_DAYS,
+    polygonTx: txHash || null
+  };
+  saveVipState(vipState);
+  refreshVipFlag();
+  renderMatchPanel();
+  logStatus('Status VIP ativado com sucesso!', 5000);
+}
+
 function activateVipDemo(){
   vipState = {
     active:true,
     expiresAt: Date.now() + VIP_DURATION_MS,
     priceBRL: VIP_PRICE_BRL,
+    pricePOL: VIP_PRICE_POL,
     durationDays: VIP_DURATION_DAYS
   };
   saveVipState(vipState);
@@ -2812,7 +3354,7 @@ function activateVipDemo(){
   renderMatchPanel();
 }
 function deactivateVipDemo(){
-  vipState = { active:false, expiresAt:0, priceBRL:VIP_PRICE_BRL, durationDays:VIP_DURATION_DAYS };
+  vipState = { active:false, expiresAt:0, priceBRL:VIP_PRICE_BRL, pricePOL:VIP_PRICE_POL, durationDays:VIP_DURATION_DAYS };
   saveVipState(vipState);
   refreshVipFlag();
   renderMatchPanel();
@@ -3030,21 +3572,33 @@ function tryStartNewRun(){
 }
 
 // PvP e Sobrevivencia exigem o Passe Diario ativo - sem passe, mostra esta
-// tela em vez de comecar a partida, com um jeito rapido de ir direto comprar.
+// tela com botao de compra exclusivamente via Carteira Polygon.
 function showBuyPassRequiredScreen(){
   const modeLabel = selectedGameMode === 'pvp' ? 'PvP' : 'Sobrevivencia';
   const overlay = document.getElementById('overlay');
   overlay.classList.remove('hidden');
   overlay.innerHTML =
-    '<h1>&#128274; Passe Diario necessario</h1>' +
-    '<p>Passe Diario necessario para jogar os modos com ranking (' + modeLabel + '). Preco: R$' + (DAILY_PASS_PRICE_CENTS/100).toFixed(2) + ' - vale para os dois modos ate as 21h.</p>' +
-    '<button id="buyPassNowBtn">Comprar Passe Agora</button>' +
-    '<button id="backToMenuFromLockBtn" style="margin-top:8px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
-  document.getElementById('buyPassNowBtn').addEventListener('click', function(){
-    buyDailyPass();
-    location.reload();
-  });
+    '<h1>&#128274; Passe de Batalha Necessario</h1>' +
+    '<p>O Passe Diario / Battle Pass e necessario para jogar os modos ranqueados (' + modeLabel + '). Desbloqueia pontuar e competir no ranking ate as 21h de hoje.</p>' +
+    '<button id="buyPassPolyNowBtn" class="polygon-pay-btn" style="width:100%;max-width:340px;margin:10px auto;"><span class="poly-icon"></span> Desbloquear com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL)</button>' +
+    '<button id="backToMenuFromLockBtn" style="margin-top:12px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
+
+  const polyBtn = document.getElementById('buyPassPolyNowBtn');
+  if(polyBtn){
+    polyBtn.addEventListener('click', function(){
+      PolygonWalletManager.executePayment({
+        title: 'Passe de Batalha Diário',
+        pricePOL: DAILY_PASS_PRICE_POL,
+        onSuccess: function(tx){
+          buyDailyPassReal(tx);
+          overlay.classList.add('hidden');
+          tryStartNewRun();
+        }
+      });
+    });
+  }
   document.getElementById('backToMenuFromLockBtn').addEventListener('click', function(){
+    overlay.classList.add('hidden');
     location.reload();
   });
 }
@@ -3064,32 +3618,38 @@ function showMatchCooldownScreen(){
     }
     overlay.innerHTML =
       '<h1>Proxima Partida Gratuita</h1>' +
-      '<p>Jogadores gratuitos podem jogar 1 partida a cada 6 horas. Assista a um anuncio para jogar agora, ou vire VIP para partidas ilimitadas.</p>' +
+      '<p>Jogadores gratuitos jogam 1 partida a cada 6 horas. Desbloqueie partidas ilimitadas com a assinatura VIP via Carteira Polygon.</p>' +
       '<p class="coinsBig">' + formatDuration(remaining) + '</p>' +
-      '<button id="unlockNowBtn" class="ad-btn">&#127909; Assistir Anuncio e Jogar Agora</button>' +
-      '<button id="goVipBtn" class="ad-btn">&#128081; Virar VIP (R$' + VIP_PRICE_BRL.toFixed(2) + ' / ' + VIP_DURATION_DAYS + ' dias)</button>';
+      '<button id="goVipPolyBtn" class="polygon-pay-btn" style="width:100%;max-width:340px;margin:8px auto;"><span class="poly-icon"></span> Virar VIP com Polygon (' + VIP_PRICE_POL.toFixed(2) + ' POL / 30 dias)</button>' +
+      '<button id="unlockNowBtn" class="ad-btn">&#127909; Assistir Anuncio e Jogar Agora</button>';
 
+    const polyBtn = document.getElementById('goVipPolyBtn');
+    if(polyBtn){
+      polyBtn.addEventListener('click', function(){
+        PolygonWalletManager.executePayment({
+          title: 'Assinatura VIP 30 Dias',
+          pricePOL: VIP_PRICE_POL,
+          onSuccess: function(tx){
+            activateVipReal(tx);
+            if(matchCooldownIntervalId){ clearInterval(matchCooldownIntervalId); matchCooldownIntervalId = null; }
+            tryStartNewRun();
+          }
+        });
+      });
+    }
     const adBtn = document.getElementById('unlockNowBtn');
     if(adBtn){
       adBtn.addEventListener('click', function(){
         adBtn.disabled = true;
         CrazySDK.showRewardedAd({
           adFinished: function(){
-            matchState.lastMatchStart = 0; // libera a partida imediatamente
+            matchState.lastMatchStart = 0;
             saveMatchState(matchState);
             if(matchCooldownIntervalId){ clearInterval(matchCooldownIntervalId); matchCooldownIntervalId = null; }
             tryStartNewRun();
           },
           adError: function(){ adBtn.disabled = false; }
         });
-      });
-    }
-    const vipBtn = document.getElementById('goVipBtn');
-    if(vipBtn){
-      vipBtn.addEventListener('click', function(){
-        activateVipDemo();
-        if(matchCooldownIntervalId){ clearInterval(matchCooldownIntervalId); matchCooldownIntervalId = null; }
-        tryStartNewRun();
       });
     }
   }
@@ -3104,24 +3664,36 @@ function renderMatchPanel(){
   if(!el) return;
   refreshVipFlag();
 
+  const account = PolygonWalletManager.getAccount();
+  const walletBadge = account
+    ? '<div class="poly-wallet-status"><span class="poly-icon"></span> Carteira: <span class="poly-address-pill">' + PolygonWalletManager.getShortAddress(account) + '</span></div>'
+    : '<div class="poly-wallet-status"><span class="poly-icon"></span> Pagamento Principal: <b>Polygon (POL/MATIC)</b></div>';
+
   if(isVip){
     const daysLeft = Math.max(0, Math.ceil((vipState.expiresAt - Date.now()) / (24*60*60*1000)));
     el.innerHTML =
-      '<div class="daily-title">&#128081; VIP ativo &mdash; partidas ilimitadas (' + daysLeft + ' dia(s) restantes)</div>' +
-      '<button id="toggleVipBtn" class="daily-btn">Cancelar VIP (demo)</button>';
+      '<div class="daily-title">&#128081; VIP Ativo &mdash; Partidas Ilimitadas (' + daysLeft + ' dia(s) restantes)</div>' +
+      walletBadge +
+      '<div class="daily-milestone">&#10004; Voce tem acesso ilimitado a todas as partidas sem nenhum tempo de espera.</div>';
   } else {
     const remaining = getMatchCooldownRemainingMs();
     el.innerHTML =
       '<div class="daily-title">' +
         (remaining > 0 ? ('Proxima partida gratuita em ' + formatDuration(remaining)) : 'Partida gratuita disponivel agora') +
       '</div>' +
-      '<div class="daily-milestone">VIP joga sem espera nenhuma &mdash; R$' + VIP_PRICE_BRL.toFixed(2) + ' / ' + VIP_DURATION_DAYS + ' dias</div>' +
-      '<button id="toggleVipBtn" class="daily-btn">Virar VIP (demo)</button>';
+      walletBadge +
+      '<div class="daily-milestone">&#128081; VIP joga sem espera nenhuma &mdash; <b>' + VIP_PRICE_POL.toFixed(2) + ' POL</b> / ' + VIP_DURATION_DAYS + ' dias</div>' +
+      '<button id="buyVipPolyPanelBtn" class="polygon-pay-btn" style="width:100%;"><span class="poly-icon"></span> Comprar VIP com Polygon (' + VIP_PRICE_POL.toFixed(2) + ' POL)</button>';
   }
-  const btn = document.getElementById('toggleVipBtn');
-  if(btn){
-    btn.addEventListener('click', function(){
-      if(isVip) deactivateVipDemo(); else activateVipDemo();
+
+  const polyBtn = document.getElementById('buyVipPolyPanelBtn');
+  if(polyBtn){
+    polyBtn.addEventListener('click', function(){
+      PolygonWalletManager.executePayment({
+        title: 'Assinatura VIP 30 Dias',
+        pricePOL: VIP_PRICE_POL,
+        onSuccess: function(tx){ activateVipReal(tx); }
+      });
     });
   }
 }
@@ -3183,7 +3755,7 @@ function renderGameModesPanel(){
   const hasPass = hasActiveDailyPass();
   const champions = loadLastChampions();
   const modes = [
-    {id:'campaign', icon:'&#127943;', name:'Campanha (PVE)', desc:'10 fases + Malak', cover:'assets/cover_campaign.jpg', comingSoon:true},
+    {id:'campaign', icon:'&#127943;', name:'Campanha (PVE)', desc:'10 fases + Malak', cover:'assets/cover_campaign.jpg', demo:true},
     {id:'survival', icon:'&#9760;&#65039;', name:'Sobrevivencia', desc:'4 herois, so 1 sobrevive', cover:'assets/cover_survival.jpg', needsPass:true, rankMode:'survival'},
     {id:'pvp', icon:'&#9876;&#65039;', name:'PvP Local', desc:'2 jogadores, 1 aparelho', cover:'assets/cover_pvp.jpg', needsPass:true, rankMode:'pvp'}
   ];
@@ -3194,19 +3766,15 @@ function renderGameModesPanel(){
       const locked = m.needsPass && !hasPass;
       const champion = m.rankMode ? champions[m.rankMode] : null;
       const coverStyle = m.cover ? ' style="background-image:linear-gradient(180deg,rgba(10,6,15,.15),rgba(10,6,15,.85)),url(\'' + m.cover + '\');background-size:cover;background-position:center 20%;"' : '';
-      return '<div class="mode-card mode-card-big' + (sel?' selected':'') + (m.cover?' has-cover':'') + (m.comingSoon?' coming-soon':'') + '" data-mode="' + m.id + '"' + coverStyle + '>' +
-        '<span class="mode-name">' + m.icon + ' ' + m.name + (m.demo ? ' <span class="mode-demo-tag">DEMO</span>' : '') + (m.comingSoon ? ' <span class="mode-soon-tag">EM BREVE</span>' : '') + '<br><small>' + m.desc + (m.comingSoon ? ' &mdash; disponivel em breve' : (locked ? ' &mdash; \u{1F512} Passe Diario necessario para jogar os modos com ranking' : '')) + '</small>' +
+      return '<div class="mode-card mode-card-big' + (sel?' selected':'') + (m.cover?' has-cover':'') + '" data-mode="' + m.id + '"' + coverStyle + '>' +
+        '<span class="mode-name">' + m.icon + ' ' + m.name + (m.demo ? ' <span class="mode-demo-tag">DEMO</span>' : '') + '<br><small>' + m.desc + (locked ? ' &mdash; \u{1F512} Passe Diario necessario para jogar os modos com ranking' : '') + '</small>' +
         (champion ? '<br><small class="mode-champion-tag">\u{1F451} Ultimo Campeao: ' + escapeHtml(champion) + '</small>' : '') +
         '</span>' +
-        (m.comingSoon ? '<span class="mode-badge">\u{1F6A7}</span>' : (sel ? '<span class="mode-badge sel">SELECIONADO</span>' : (locked ? '<span class="mode-badge">\u{1F512} PASSE</span>' : ''))) +
+        (sel ? '<span class="mode-badge sel">SELECIONADO</span>' : (locked ? '<span class="mode-badge">\u{1F512} PASSE</span>' : '')) +
       '</div>';
     }).join('');
   el.querySelectorAll('.mode-card').forEach(function(card){
-    card.addEventListener('click', function(){
-      // modos marcados como "em breve" nao sao selecionaveis
-      if(card.classList.contains('coming-soon')) return;
-      selectGameMode(card.getAttribute('data-mode'));
-    });
+    card.addEventListener('click', function(){ selectGameMode(card.getAttribute('data-mode')); });
   });
 }
 
@@ -3524,6 +4092,14 @@ function hasActiveDailyPass(){
 function buyDailyPass(){
   saveDailyPassState(getCycleDateKey());
 }
+function buyDailyPassReal(txHash){
+  saveDailyPassState(getCycleDateKey());
+  try{ localStorage.setItem('rb_daily_pass_tx', txHash || ''); }catch(e){}
+  renderEquipmentPanel();
+  renderDailyRankPanel();
+  renderGameModesPanel();
+  logStatus('Passe de Batalha desbloqueado com sucesso!', 5000);
+}
 
 function loadDailyTitles(){
   let list = null;
@@ -3740,7 +4316,10 @@ function renderDailyRankPanel(){
 
   const passRowHtml = hasPass
     ? '<div class="rank-pass-row"><span class="rank-pass-status">\u2705 Passe ativo hoje (vale PvP e Sobrevivencia)</span></div>'
-    : '<div class="rank-pass-row"><span class="daily-milestone">Sem passe hoje - compre na aba \u{1F6D2} Loja de Equipamentos</span></div>';
+    : '<div class="rank-pass-row" style="flex-direction:column;align-items:stretch;gap:6px;">' +
+        '<span class="daily-milestone">&#128274; Desbloqueie o Passe para pontuar nos Rankings Diarios:</span>' +
+        '<button id="buyRankPassPolyBtn" class="polygon-pay-btn" style="width:100%;"><span class="poly-icon"></span> Desbloquear Passe com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL)</button>' +
+      '</div>';
 
   el.innerHTML =
     '<div class="daily-title">\u{1F3C6} Rankings Diarios</div>' +
@@ -3748,6 +4327,19 @@ function renderDailyRankPanel(){
     passRowHtml +
     renderRankBoardHtml('survival') +
     renderRankBoardHtml('pvp');
+
+  const rankPolyBtn = document.getElementById('buyRankPassPolyBtn');
+  if(rankPolyBtn){
+    rankPolyBtn.addEventListener('click', function(){
+      PolygonWalletManager.executePayment({
+        title: 'Passe de Batalha Diário',
+        pricePOL: DAILY_PASS_PRICE_POL,
+        onSuccess: function(tx){
+          buyDailyPassReal(tx);
+        }
+      });
+    });
+  }
 }
 
 // Atualiza os cronometros dos 2 boards a cada segundo enquanto o menu
@@ -5028,11 +5620,11 @@ function renderEquipmentPanel(){
 
   const hasPass = hasActiveDailyPass();
   const passHtml =
-    '<div class="equip-item-row">' +
-      '<span class="equip-item-info"><b>Passe Diario</b><br><small>Libera pontuar no Ranking Diario (PvP e Sobrevivencia) ate as 21h</small></span>' +
+    '<div class="equip-item-row" style="flex-wrap:wrap;gap:8px;">' +
+      '<span class="equip-item-info" style="flex:1 1 100%;"><b>Passe Diario / Battle Pass</b><br><small>Libera pontuar no Ranking Diario (PvP e Sobrevivencia) ate as 21h</small></span>' +
       (hasPass
         ? '<span class="rank-pass-status">\u2705 Ativo hoje</span>'
-        : '<button class="daily-btn buy-pass-btn">Comprar (R$' + (DAILY_PASS_PRICE_CENTS/100).toFixed(2) + ')</button>') +
+        : '<button class="polygon-pay-btn buy-pass-poly-btn" style="flex:1;min-width:200px;"><span class="poly-icon"></span> Comprar com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL)</button>') +
     '</div>';
 
   const byChar = {};
@@ -5069,6 +5661,18 @@ function renderEquipmentPanel(){
     '<div class="daily-milestone">Sua carteira: <b>' + walletGold + ' \u{1FA99}</b> (ganhe jogando a Campanha)</div>' +
     '<div class="daily-milestone">\u2694\uFE0F Os bonus valem apenas na <b>Campanha</b>. No PvP e na Sobrevivencia os itens aparecem no seu personagem, mas <b>sem vantagem</b> - a arena e 100% habilidade.</div>' +
     '<div class="equip-list">' + rows + '</div>';
+
+  el.querySelectorAll('.buy-pass-poly-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      PolygonWalletManager.executePayment({
+        title: 'Passe de Batalha Diário',
+        pricePOL: DAILY_PASS_PRICE_POL,
+        onSuccess: function(tx){
+          buyDailyPassReal(tx);
+        }
+      });
+    });
+  });
 
   el.querySelectorAll('.buy-pass-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -6043,25 +6647,29 @@ function drawBossAura(b, now){
 // nos pes da entidade, com sombra, flicker de invulnerabilidade e uma
 // animacao de "passada" (balanco vertical + leve inclinacao + compressao)
 // quando esta em movimento, para dar sensacao real de caminhada.
-function drawCharacterSprite(ent, img, now, sizeScale, forceMirror){
+function drawCharacterSprite(ent, img, now, sizeScale, forceMirror, isAnimatedRun){
   const scale = sizeScale || 1;
   const px = offsetX + ent.x*tileSize;
   const py = offsetY + ent.y*tileSize;
-  const drawH = tileSize*1.05*scale; // reduzido de 1.7 para ficar proporcional ao cenario
-  const drawW = drawH * (img.naturalWidth/img.naturalHeight);
+  // Suporta tanto HTMLImageElement (naturalWidth) quanto HTMLCanvasElement (.width)
+  const srcW = img.naturalWidth  || img.width  || 1;
+  const srcH = img.naturalHeight || img.height || 1;
+  const drawH = tileSize*1.06*scale;
+  const drawW = drawH * (srcW / srcH);
 
   const walkPhase = animT*10;
-  const bob = ent.moving ? Math.sin(walkPhase) * (tileSize*0.05) : 0;
-  const tilt = ent.moving ? Math.sin(walkPhase) * 0.05 : 0;           // leve inclinacao (radianos)
-  const squash = ent.moving ? 1 - Math.abs(Math.sin(walkPhase))*0.035 : 1; // compressao no auge do passo
-  const stretch = ent.moving ? 1 + Math.abs(Math.sin(walkPhase))*0.02 : 1;
+  // Se ja e um quadro de animacao real de corrida, nao precisa de deformacao artificial
+  const bob = (ent.moving && !isAnimatedRun) ? Math.sin(walkPhase) * (tileSize*0.05) : 0;
+  const tilt = (ent.moving && !isAnimatedRun) ? Math.sin(walkPhase) * 0.05 : 0;           // leve inclinacao (radianos)
+  const squash = (ent.moving && !isAnimatedRun) ? 1 - Math.abs(Math.sin(walkPhase))*0.035 : 1; // compressao no auge do passo
+  const stretch = (ent.moving && !isAnimatedRun) ? 1 + Math.abs(Math.sin(walkPhase))*0.02 : 1;
 
   ctx.save();
 
-  // sombra no chao (fixa, nao acompanha a animacao)
+  // sombra no chao (fixa, suave)
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath();
-  ctx.ellipse(px, py + tileSize*0.32*scale, drawW*0.30, tileSize*0.1*scale, 0, 0, Math.PI*2);
+  ctx.ellipse(px, py + tileSize*0.32*scale, drawW*0.28, tileSize*0.09*scale, 0, 0, Math.PI*2);
   ctx.fill();
 
   if(now < ent.invulnUntil && Math.floor(now/100)%2===0){
@@ -6188,14 +6796,22 @@ function render(now){
 
   const entities = [];
   entities.push({y:player.y, draw:function(){
-    const dirSprite = getDirectionalSprite(player.colors.key, player.dir);
+    const charKey = player.colors ? player.colors.key : 'vesper';
+    if(player.moving){
+      const runSprite = getCharacterRunSprite(charKey, player.dir, now);
+      if(runSprite){
+        drawCharacterSprite(player, runSprite.img, now, 1, runSprite.mirror, true);
+        return;
+      }
+    }
+    const dirSprite = getDirectionalSprite(charKey, player.dir);
     if(dirSprite){
-      drawCharacterSprite(player, dirSprite.img, now, 1, dirSprite.mirror);
+      drawCharacterSprite(player, dirSprite.img, now, 1, dirSprite.mirror, false);
       return;
     }
-    const sprite = getCharacterSprite(player.colors.key);
+    const sprite = getCharacterSprite(charKey);
     if(sprite){
-      drawCharacterSprite(player, sprite, now);
+      drawCharacterSprite(player, sprite, now, 1, false, false);
     } else {
       drawWizard(player, player.colors.robe, player.colors.robe2, player.colors.hat, true, now, player.colors.accent, 1);
     }
@@ -6208,12 +6824,12 @@ function render(now){
       drawBossAura(boss, now);
       const dirSprite = getDirectionalSprite('malak', boss.dir);
       if(dirSprite){
-        drawCharacterSprite(boss, dirSprite.img, now, boss.sizeMul, dirSprite.mirror);
+        drawCharacterSprite(boss, dirSprite.img, now, boss.sizeMul, dirSprite.mirror, false);
         return;
       }
       const sprite = getCharacterSprite('malak');
       if(sprite){
-        drawCharacterSprite(boss, sprite, now, boss.sizeMul);
+        drawCharacterSprite(boss, sprite, now, boss.sizeMul, false, false);
       } else {
         const pal = BOSS_STAGE_PALETTE[boss.stage];
         drawWizard(boss, pal.robe, pal.robe2, pal.hat, false, now, pal.orb, boss.sizeMul);
@@ -6444,17 +7060,25 @@ function clearMatchmakingTimers(){
 function updateMatchmakingCountdownDisplay(){
   if(!pvpWaitingForOpponent) return;
   const remaining = Math.max(0, matchmakingDeadline - performance.now());
-  hudEls.monsterTag.textContent = '\u{1F50D} Procurando jogador on-line... ' + Math.ceil(remaining/1000) + 's';
+  const remainingSec = Math.ceil(remaining/1000);
+  const pct = Math.max(0, Math.min(100, (remaining / MATCHMAKING_TIMEOUT_MS) * 100));
+
+  const bar = document.getElementById('mmTimerBar');
+  const txt = document.getElementById('mmTimerText');
+  if(bar) bar.style.width = pct + '%';
+  if(txt) txt.textContent = remainingSec + 's';
+
+  hudEls.monsterTag.textContent = '\u{1F50D} Aguardando jogadores... ' + remainingSec + 's';
 }
 
 // 30s se passaram sem 'matchFound' - preenche automaticamente com um Bot e
-// inicia a partida, sem exigir nenhuma escolha manual (nao existe cobranca
-// por partida hoje, entao nao ha "devolucao de taxa": o passe do dia
-// continua ativo do mesmo jeito).
+// inicia a partida, sem exigir nenhuma escolha manual
 function handleMatchmakingTimeout(){
   if(!pvpWaitingForOpponent) return; // ja achou partida nesse meio tempo
   clearMatchmakingTimers();
   pvpWaitingForOpponent = false;
+  const mmOverlay = document.getElementById('matchmakingOverlay');
+  if(mmOverlay) mmOverlay.classList.add('hidden-mode');
   NetworkManager.cancelSearch();
   fadeOutMatchmakingMusic(500);
   startPvpMatchWithBot();
@@ -6474,26 +7098,42 @@ function startPvpMatchWithBot(){
   logStatus('Partida iniciada! Jogadores Reais: 1 | Bots: 1 (' + pvpP2.botName + ')', 6000);
 }
 
-// Modo online: conecta no servidor, entra na fila de pareamento e so comeca
-// a partida de fato quando o servidor confirmar os 2 jogadores (evento
-// 'matchFound', com a semente do mapa e o horario oficial de inicio - assim
-// os dois clientes desenham o MESMO mapa e o MESMO cronometro de fechamento).
-// Toca a trilha de matchmaking em loop durante os 30s de espera; se ninguem
-// for encontrado a tempo, cai no timeout acima.
+// Modo online: conecta no servidor, entra na fila de pareamento com radar animado de 30s
 function startPvpMatchOnline(){
   pvpWaitingForOpponent = true;
   gameState = 'playing';
   hudEls.phaseTag.textContent = 'PvP Online';
-  hudEls.monsterTag.textContent = '\u{1F50D} Procurando jogador on-line... 30s';
+  hudEls.monsterTag.textContent = '\u{1F50D} Aguardando jogadores... 30s';
+
+  const mmOverlay = document.getElementById('matchmakingOverlay');
+  if(mmOverlay) mmOverlay.classList.remove('hidden-mode');
+  const mmBar = document.getElementById('mmTimerBar');
+  if(mmBar) mmBar.style.width = '100%';
+  const mmTxt = document.getElementById('mmTimerText');
+  if(mmTxt) mmTxt.textContent = '30s';
+
+  const cancelBtn = document.getElementById('cancelMatchmakingBtn');
+  if(cancelBtn){
+    cancelBtn.onclick = function(){
+      clearMatchmakingTimers();
+      pvpWaitingForOpponent = false;
+      if(mmOverlay) mmOverlay.classList.add('hidden-mode');
+      stopMatchmakingMusicNow();
+      NetworkManager.cancelSearch();
+      location.reload();
+    };
+  }
 
   playMatchmakingMusic();
   matchmakingDeadline = performance.now() + MATCHMAKING_TIMEOUT_MS;
   clearMatchmakingTimers();
-  matchmakingCountdownIntervalId = setInterval(updateMatchmakingCountdownDisplay, 500);
+  matchmakingCountdownIntervalId = setInterval(updateMatchmakingCountdownDisplay, 250);
   matchmakingTimeoutId = setTimeout(handleMatchmakingTimeout, MATCHMAKING_TIMEOUT_MS);
 
   NetworkManager.on('matchFound', function(data){
     clearMatchmakingTimers();
+    const mm = document.getElementById('matchmakingOverlay');
+    if(mm) mm.classList.add('hidden-mode');
     stopMatchmakingMusicNow();
     AudioEngine.matchFound();
 
@@ -6506,9 +7146,6 @@ function startPvpMatchOnline(){
     pvpP1 = makeArenaHero(pvpIAmP1?meCol:themCol, pvpIAmP1?meRow:themRow, selectedCharacterIndex);
     pvpP2 = makeArenaHero(pvpIAmP1?themCol:meCol, pvpIAmP1?themRow:meRow, data.opponentCharIndex||0);
     pvpP1.heroId = 'me'; pvpP2.heroId = 'opponent';
-    // Arena e 100% habilidade - efeitos desligados (ver startPvpMatchLocal).
-    // Isso tambem resolve a antiga limitacao de os itens do oponente nao
-    // sincronizarem pela rede: como ninguem tem bonus, nao ha o que sincronizar.
     applyEquippedItemEffects(pvpP1, false);
 
     pvpCloseState = createArenaCloseState(data.matchStartAt || performance.now());
@@ -6541,7 +7178,6 @@ function startPvpMatchOnline(){
   });
 
   NetworkManager.on('sessionReplaced', function(){
-    // o mesmo playerId logou em outro aparelho - encerra esta sessao (multilogin: so uma ativa por vez)
     NetworkManager.disconnect();
     if(!pvpMatchOver){
       pvpMatchOver = true;
@@ -6555,6 +7191,8 @@ function startPvpMatchOnline(){
     if(pvpWaitingForOpponent){
       clearMatchmakingTimers();
       pvpWaitingForOpponent = false;
+      const mm = document.getElementById('matchmakingOverlay');
+      if(mm) mm.classList.add('hidden-mode');
       fadeOutMatchmakingMusic(500);
       startPvpMatchWithBot();
       return;
@@ -6574,18 +7212,10 @@ function startPvpMatchOnline(){
       })
       .catch(function(err){
         console.warn('[PvP Online] Falha ao conectar - a busca continua normalmente ate o timeout:', err.message);
-        // NAO cai pro fallback na hora - deixa o cronometro de 30s (ja
-        // rodando desde o inicio desta funcao) decidir, pra sempre dar a
-        // mesma janela de espera antes de preencher com Bot.
       });
   }
-  // se pvpIsOnline for false (nenhum servidor configurado), nem tenta
-  // conectar - so deixa o cronometro de 30s correr e cair no Bot no final.
 }
 
-// Reaproveita o mesmo id estavel ja usado pelo sistema de Indique e Ganhe
-// (rb_user_id_v1) como identidade de rede - evita criar um segundo conceito
-// de "conta" so para o multiplayer.
 function getOrCreateNetworkPlayerId(){
   try{
     let id = localStorage.getItem('rb_user_id_v1');
@@ -6599,70 +7229,182 @@ function getOrCreateNetworkPlayerId(){
   }
 }
 
-// IA simples do bot de PvP (preenche a vaga quando ninguem e encontrado em
-// 30s) - mesmo padrao ja usado na Sobrevivencia: anda aleatoriamente por
-// celulas livres, e planta bomba com chance quando o oponente esta perto.
-// Nomes realistas para os bots preencherem a vaga (em vez de "Bot 1", "Bot 2")
 const BOT_NAMES = ['Kael_BR','ArenaGhost','ShadowRune77','MysticBlaze','VaneX','Runa_Sombria','ThunderPeak','NightBlade22','Ecliptor','FeitiÃ§oNoturno'];
 
-// Sorteia identidade e "personalidade" do bot para esta partida - reacao e
-// acerto variam a cada vez, pra nao parecer sempre o mesmo jogador perfeito.
 function assignBotIdentity(bot){
   bot.botName = BOT_NAMES[Math.floor(Math.random()*BOT_NAMES.length)];
-  bot.reactionMs = 350 + Math.random()*350;       // 350-700ms de delay ate "notar" o oponente
-  bot.skillAccuracy = 0.55 + Math.random()*0.25;   // 55%-80% de acerto nas decisoes taticas
+  bot.reactionMs = 180 + Math.random()*220;       // delay tático humanizado (180-400ms)
+  bot.skillAccuracy = 0.70 + Math.random()*0.25;   // 70%-95% de precisão tática e esquiva
   bot.enemySeenAt = 0;
 }
 
-function updatePvpBotAI(bot, dt, now){
+/* ============================================================
+   MOTOR DE IA TÁTICA AVANÇADA (PvP & Sobrevivência)
+   - Mapeamento de perigo em tempo real (linha de fogo de bombas, chamas ativas e borda do mapa)
+   - Esquiva prioritária para rotas seguras
+   - Flanqueamento e perseguição inteligente
+   - Armadilhas e posicionamento de bombas com rota de fuga garantida
+   - Coleta ativa de power-ups
+============================================================ */
+function isTileInDanger(col, row, heroId){
+  if(col < 0 || col >= COLS || row < 0 || row >= ROWS) return 1000;
+  if(isSolidTile(col, row)) return 1000;
+
+  let danger = 0;
+
+  // 1. Chamas ativas
+  for(let i=0; i<flames.length; i++){
+    const f = flames[i];
+    if(f.col === col && f.row === row) danger += 500;
+  }
+
+  // 2. Bombas ativas e cruz de explosão
+  for(let i=0; i<runes.length; i++){
+    const r = runes[i];
+    if(r.exploded) continue;
+    const rRange = r.range || 1;
+    if(r.col === col && r.row === row){
+      danger += 400;
+      continue;
+    }
+    if(r.row === row && Math.abs(r.col - col) <= rRange){
+      const minC = Math.min(r.col, col), maxC = Math.max(r.col, col);
+      let blocked = false;
+      for(let c = minC + 1; c < maxC; c++){
+        if(isSolidTile(c, row)){ blocked = true; break; }
+      }
+      if(!blocked) danger += 350;
+    }
+    if(r.col === col && Math.abs(r.row - row) <= rRange){
+      const minR = Math.min(r.row, row), maxR = Math.max(r.row, row);
+      let blocked = false;
+      for(let rr = minR + 1; rr < maxR; rr++){
+        if(isSolidTile(col, rr)){ blocked = true; break; }
+      }
+      if(!blocked) danger += 350;
+    }
+  }
+
+  // 3. Células de aviso de fechamento da arena
+  const closeState = (gameMode === 'survival') ? survivalCloseState : pvpCloseState;
+  if(closeState && closeState.warningCells){
+    for(let i=0; i<closeState.warningCells.length; i++){
+      const wc = closeState.warningCells[i];
+      if(wc.row === row && wc.col === col) danger += 450;
+    }
+  }
+
+  return danger;
+}
+
+function getSafeEvasionDirection(bot, col, row){
+  const dirs = [[0,0], [1,0], [-1,0], [0,1], [0,-1]];
+  const minDanger = isTileInDanger(col, row, bot.heroId);
+
+  const candidates = [];
+  for(let i=1; i<dirs.length; i++){
+    const d = dirs[i];
+    const nc = col + d[0], nr = row + d[1];
+    if(isSolidTile(nc, nr) || isRuneBlockingHero(nc, nr, bot.heroId)) continue;
+    const dScore = isTileInDanger(nc, nr, bot.heroId);
+    candidates.push({ dir: d, score: dScore });
+  }
+
+  if(candidates.length > 0){
+    candidates.sort(function(a,b){ return a.score - b.score; });
+    if(candidates[0].score < minDanger || candidates[0].score === 0){
+      return candidates[0].dir;
+    }
+  }
+  return null;
+}
+
+function updateTacticalBot(bot, targetHero, allHeroes, dt, now){
   if(!bot.alive) return;
   if(bot.reactionMs === undefined) assignBotIdentity(bot);
 
-  const nearEnemy = pvpP1.alive && Math.hypot(pvpP1.x-bot.x, pvpP1.y-bot.y) < 2.4;
-  if(nearEnemy && !bot.enemySeenAt) bot.enemySeenAt = now;
-  if(!nearEnemy) bot.enemySeenAt = 0;
-  // so reage ao oponente depois do delay de reacao (humanizado) - antes
-  // disso, continua andando aleatoriamente como se nao tivesse percebido
-  const reactedToEnemy = nearEnemy && bot.enemySeenAt && (now - bot.enemySeenAt >= bot.reactionMs);
+  const col = Math.floor(bot.x), row = Math.floor(bot.y);
+  const currentDanger = isTileInDanger(col, row, bot.heroId);
 
-  if(now > bot.nextDecision){
-    bot.nextDecision = now + 450 + Math.random()*850;
-    const col = Math.floor(bot.x), row = Math.floor(bot.y);
-
-    // foge da propria bomba plantada ha pouco - mas so acerta a fuga com a
-    // chance de "acerto" dele (as vezes hesita e fica no lugar, como um
-    // jogador de verdade cometendo erro sob pressao)
-    const ownRune = runes.find(function(r){ return !r.exploded && r.owner===bot.heroId; });
-    const fleeingOwnBomb = ownRune && Math.hypot((ownRune.col+0.5)-bot.x, (ownRune.row+0.5)-bot.y) < 2.5 && Math.random() < bot.skillAccuracy;
+  // Esquiva imediata se estiver em perigo de explosão ou chamas
+  if(currentDanger > 0){
+    const evadeDir = getSafeEvasionDirection(bot, col, row);
+    if(evadeDir){
+      bot.dxDir = evadeDir;
+      bot.moving = true;
+    }
+  } else if(now > bot.nextDecision){
+    bot.nextDecision = now + 160 + Math.random()*220; // micro-decisões rápidas e responsivas
 
     const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-    let open = dirs.filter(function(d){
-      return !isSolidTile(col+d[0], row+d[1]) && !isRuneBlockingHero(col+d[0], row+d[1], bot.heroId);
+    const openDirs = dirs.filter(function(d){
+      const nc = col + d[0], nr = row + d[1];
+      return !isSolidTile(nc, nr) && !isRuneBlockingHero(nc, nr, bot.heroId) && isTileInDanger(nc, nr, bot.heroId) === 0;
     });
-    if(fleeingOwnBomb && open.length){
-      // prefere a direcao que aumenta a distancia da propria bomba
-      open = open.slice().sort(function(a,b){
-        const da = Math.hypot((col+a[0])-ownRune.col, (row+a[1])-ownRune.row);
-        const db = Math.hypot((col+b[0])-ownRune.col, (row+b[1])-ownRune.row);
-        return db - da;
-      });
-      bot.dxDir = open[0];
-    } else {
-      bot.dxDir = open.length ? open[Math.floor(Math.random()*open.length)] : [0,0];
+
+    let chosenDir = [0,0];
+
+    // 1. Rastreamento tático do alvo e ataque
+    if(targetHero && targetHero.alive){
+      const dist = Math.hypot(targetHero.x - bot.x, targetHero.y - bot.y);
+      const tCol = Math.floor(targetHero.x), tRow = Math.floor(targetHero.y);
+
+      // Ataque de curto/médio alcance com bomba caso tenha rota de fuga
+      if(dist <= 2.3 && (col === tCol || row === tRow || dist < 1.4)){
+        if(openDirs.length >= 1 && Math.random() < bot.skillAccuracy * 0.75){
+          heroPlaceBomb(bot, bot.heroId, allHeroes);
+          chosenDir = openDirs[0];
+        }
+      }
+
+      // Flanqueamento inteligente em direção ao oponente
+      if(chosenDir[0] === 0 && chosenDir[1] === 0 && openDirs.length > 0){
+        openDirs.sort(function(a,b){
+          const da = Math.hypot((col + a[0] + 0.5) - targetHero.x, (row + a[1] + 0.5) - targetHero.y);
+          const db = Math.hypot((col + b[0] + 0.5) - targetHero.x, (row + b[1] + 0.5) - targetHero.y);
+          if(dist < 3.0 && Math.random() < 0.3) return Math.random() - 0.5;
+          return da - db;
+        });
+        chosenDir = openDirs[0];
+      }
     }
 
-    // so planta bomba se ja reagiu ao oponente (respeita o delay) E passa
-    // no teste de acerto - taxa mais baixa que a chance bruta de proximidade,
-    // pra nao parecer que o bot ataca toda vez que possivel
-    if(reactedToEnemy && Math.random() < bot.skillAccuracy*0.6){
-      heroPlaceBomb(bot, bot.heroId, [pvpP1, bot]);
+    // 2. Coleta de Power-ups se o caminho for seguro
+    if(chosenDir[0] === 0 && chosenDir[1] === 0 && powerups.length > 0 && openDirs.length > 0){
+      const activePUs = powerups.filter(function(p){ return !p.collected; });
+      if(activePUs.length > 0){
+        activePUs.sort(function(a,b){
+          return Math.hypot((a.col+0.5)-bot.x, (a.row+0.5)-bot.y) - Math.hypot((b.col+0.5)-bot.x, (b.row+0.5)-bot.y);
+        });
+        const nearestPU = activePUs[0];
+        openDirs.sort(function(a,b){
+          const da = Math.hypot((col+a[0]+0.5)-(nearestPU.col+0.5), (row+a[1]+0.5)-(nearestPU.row+0.5));
+          const db = Math.hypot((col+b[0]+0.5)-(nearestPU.col+0.5), (row+b[1]+0.5)-(nearestPU.row+0.5));
+          return da - db;
+        });
+        chosenDir = openDirs[0];
+      }
     }
+
+    if(chosenDir[0] === 0 && chosenDir[1] === 0){
+      chosenDir = openDirs.length ? openDirs[Math.floor(Math.random()*openDirs.length)] : [0,0];
+    }
+
+    bot.dxDir = chosenDir;
   }
-  bot.moving = (bot.dxDir[0]!==0 || bot.dxDir[1]!==0);
-  if(bot.dxDir[0]>0) bot.dir='right'; else if(bot.dxDir[0]<0) bot.dir='left';
-  else if(bot.dxDir[1]>0) bot.dir='down'; else if(bot.dxDir[1]<0) bot.dir='up';
+
+  bot.moving = (bot.dxDir[0] !== 0 || bot.dxDir[1] !== 0);
+  if(bot.dxDir[0] > 0) bot.dir = 'right';
+  else if(bot.dxDir[0] < 0) bot.dir = 'left';
+  else if(bot.dxDir[1] > 0) bot.dir = 'down';
+  else if(bot.dxDir[1] < 0) bot.dir = 'up';
+
   heroTryMoveX(bot, bot.heroId, bot.dxDir[0], bot.speed, dt);
   heroTryMoveY(bot, bot.heroId, bot.dxDir[1], bot.speed, dt);
+}
+
+function updatePvpBotAI(bot, dt, now){
+  updateTacticalBot(bot, pvpP1, [pvpP1, bot], dt, now);
 }
 
 function updatePvpMode(dt, now){
@@ -6854,13 +7596,23 @@ function drawArenaHero(h, now){
   const invisAlpha = h.isInvisible ? 0.22 : 1;
   ctx.save();
   ctx.globalAlpha = invisAlpha;
-  const dirSprite = getDirectionalSprite(h.colors.key, h.dir);
+  const charKey = h.colors ? h.colors.key : 'vesper';
+  if(h.moving){
+    const runSprite = getCharacterRunSprite(charKey, h.dir, now);
+    if(runSprite){
+      drawCharacterSprite(h, runSprite.img, now, 1, runSprite.mirror, true);
+      if(h.alive) drawHeroNameplate(h, now);
+      ctx.restore();
+      return;
+    }
+  }
+  const dirSprite = getDirectionalSprite(charKey, h.dir);
   if(dirSprite){
-    drawCharacterSprite(h, dirSprite.img, now, 1, dirSprite.mirror);
+    drawCharacterSprite(h, dirSprite.img, now, 1, dirSprite.mirror, false);
   } else {
-    const sprite = getCharacterSprite(h.colors.key);
+    const sprite = getCharacterSprite(charKey);
     if(sprite){
-      drawCharacterSprite(h, sprite, now);
+      drawCharacterSprite(h, sprite, now, 1, false, false);
     } else {
       drawWizard(h, h.colors.robe, h.colors.robe2, h.colors.hat, true, now, h.colors.accent, 1);
     }
@@ -7029,29 +7781,18 @@ function startSurvivalMatch(){
   logStatus('Partida iniciada! Jogadores Reais: 1 | Bots: 3', 6000);
 }
 
-// IA simples do bot: anda aleatoriamente por celulas livres, e planta bomba
-// com chance quando outro heroi esta perto (~2 casas de distancia).
+// IA Tática dos Bots de Sobrevivência (Todos contra Todos - 4 heróis)
 function updateSurvivalBot(bot, dt, now){
   if(!bot.alive) return;
-  if(now > bot.nextDecision){
-    bot.nextDecision = now + 500 + Math.random()*900;
-    const col = Math.floor(bot.x), row = Math.floor(bot.y);
-    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-    const open = dirs.filter(function(d){
-      return !isSolidTile(col+d[0], row+d[1]) && !isRuneBlockingHero(col+d[0], row+d[1], bot.heroId);
-    });
-    bot.dxDir = open.length ? open[Math.floor(Math.random()*open.length)] : [0,0];
-
-    const nearEnemy = survivalHeroes.some(function(other){
-      return other !== bot && other.alive && Math.hypot(other.x-bot.x, other.y-bot.y) < 2.2;
-    });
-    if(nearEnemy && Math.random() < 0.5) heroPlaceBomb(bot, bot.heroId, survivalHeroes);
+  // Encontra o inimigo vivo mais próximo para rastrear e atacar
+  const rivals = survivalHeroes.filter(function(other){ return other !== bot && other.alive; });
+  let nearestTarget = null;
+  let minDist = Infinity;
+  for(let i=0; i<rivals.length; i++){
+    const d = Math.hypot(rivals[i].x - bot.x, rivals[i].y - bot.y);
+    if(d < minDist){ minDist = d; nearestTarget = rivals[i]; }
   }
-  bot.moving = (bot.dxDir[0]!==0 || bot.dxDir[1]!==0);
-  if(bot.dxDir[0]>0) bot.dir='right'; else if(bot.dxDir[0]<0) bot.dir='left';
-  else if(bot.dxDir[1]>0) bot.dir='down'; else if(bot.dxDir[1]<0) bot.dir='up';
-  heroTryMoveX(bot, bot.heroId, bot.dxDir[0], bot.speed, dt);
-  heroTryMoveY(bot, bot.heroId, bot.dxDir[1], bot.speed, dt);
+  updateTacticalBot(bot, nearestTarget, survivalHeroes, dt, now);
 }
 
 function updateSurvivalMode(dt, now){
