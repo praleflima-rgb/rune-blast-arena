@@ -3510,7 +3510,7 @@ function tryStartNewRun(){
 }
 
 // PvP e Sobrevivencia exigem o Passe Diario ativo - sem passe, mostra esta
-// tela com opcao de compra direta via Carteira Polygon ou demo.
+// tela com botao de compra exclusivamente via Carteira Polygon.
 function showBuyPassRequiredScreen(){
   const modeLabel = selectedGameMode === 'pvp' ? 'PvP' : 'Sobrevivencia';
   const overlay = document.getElementById('overlay');
@@ -3519,9 +3519,8 @@ function showBuyPassRequiredScreen(){
     '<h1>&#128274; Passe de Batalha Necessario</h1>' +
     '<p>O Passe Diario / Battle Pass e necessario para jogar os modos ranqueados (' + modeLabel + '). Desbloqueia pontuar e competir no ranking ate as 21h de hoje.</p>' +
     '<button id="buyPassPolyNowBtn" class="polygon-pay-btn" style="width:100%;max-width:340px;margin:10px auto;"><span class="poly-icon"></span> Desbloquear com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL)</button>' +
-    '<button id="buyPassNowBtn" class="daily-btn" style="background:#2a1c3d;font-size:11px;margin-top:6px;">Desbloquear Teste (Demo Offline)</button>' +
-    '<button id="backToMenuFromLockBtn" style="margin-top:8px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
-  
+    '<button id="backToMenuFromLockBtn" style="margin-top:12px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
+
   const polyBtn = document.getElementById('buyPassPolyNowBtn');
   if(polyBtn){
     polyBtn.addEventListener('click', function(){
@@ -3536,11 +3535,6 @@ function showBuyPassRequiredScreen(){
       });
     });
   }
-  document.getElementById('buyPassNowBtn').addEventListener('click', function(){
-    buyDailyPass();
-    overlay.classList.add('hidden');
-    tryStartNewRun();
-  });
   document.getElementById('backToMenuFromLockBtn').addEventListener('click', function(){
     overlay.classList.add('hidden');
     location.reload();
@@ -3565,8 +3559,7 @@ function showMatchCooldownScreen(){
       '<p>Jogadores gratuitos jogam 1 partida a cada 6 horas. Desbloqueie partidas ilimitadas com a assinatura VIP via Carteira Polygon.</p>' +
       '<p class="coinsBig">' + formatDuration(remaining) + '</p>' +
       '<button id="goVipPolyBtn" class="polygon-pay-btn" style="width:100%;max-width:340px;margin:8px auto;"><span class="poly-icon"></span> Virar VIP com Polygon (' + VIP_PRICE_POL.toFixed(2) + ' POL / 30 dias)</button>' +
-      '<button id="unlockNowBtn" class="ad-btn">&#127909; Assistir Anuncio e Jogar Agora</button>' +
-      '<button id="goVipBtn" class="daily-btn" style="background:#2a1c3d;font-size:11px;margin-top:4px;">Ativar VIP Teste (Demo Offline)</button>';
+      '<button id="unlockNowBtn" class="ad-btn">&#127909; Assistir Anuncio e Jogar Agora</button>';
 
     const polyBtn = document.getElementById('goVipPolyBtn');
     if(polyBtn){
@@ -3588,21 +3581,13 @@ function showMatchCooldownScreen(){
         adBtn.disabled = true;
         CrazySDK.showRewardedAd({
           adFinished: function(){
-            matchState.lastMatchStart = 0; // libera a partida imediatamente
+            matchState.lastMatchStart = 0;
             saveMatchState(matchState);
             if(matchCooldownIntervalId){ clearInterval(matchCooldownIntervalId); matchCooldownIntervalId = null; }
             tryStartNewRun();
           },
           adError: function(){ adBtn.disabled = false; }
         });
-      });
-    }
-    const vipBtn = document.getElementById('goVipBtn');
-    if(vipBtn){
-      vipBtn.addEventListener('click', function(){
-        activateVipDemo();
-        if(matchCooldownIntervalId){ clearInterval(matchCooldownIntervalId); matchCooldownIntervalId = null; }
-        tryStartNewRun();
       });
     }
   }
@@ -3627,8 +3612,7 @@ function renderMatchPanel(){
     el.innerHTML =
       '<div class="daily-title">&#128081; VIP Ativo &mdash; Partidas Ilimitadas (' + daysLeft + ' dia(s) restantes)</div>' +
       walletBadge +
-      '<div class="daily-milestone">&#10004; Voce tem acesso ilimitado a todas as partidas sem nenhum tempo de espera.</div>' +
-      '<button id="toggleVipBtn" class="daily-btn" style="background:#4a2c35;margin-top:6px;">Cancelar VIP (demo)</button>';
+      '<div class="daily-milestone">&#10004; Voce tem acesso ilimitado a todas as partidas sem nenhum tempo de espera.</div>';
   } else {
     const remaining = getMatchCooldownRemainingMs();
     el.innerHTML =
@@ -3637,8 +3621,7 @@ function renderMatchPanel(){
       '</div>' +
       walletBadge +
       '<div class="daily-milestone">&#128081; VIP joga sem espera nenhuma &mdash; <b>' + VIP_PRICE_POL.toFixed(2) + ' POL</b> / ' + VIP_DURATION_DAYS + ' dias</div>' +
-      '<button id="buyVipPolyPanelBtn" class="polygon-pay-btn" style="width:100%;"><span class="poly-icon"></span> Comprar VIP com Polygon (' + VIP_PRICE_POL.toFixed(2) + ' POL)</button>' +
-      '<button id="toggleVipBtn" class="daily-btn" style="background:#2a1c3d;font-size:11px;margin-top:4px;">Ativar VIP Teste (Demo Offline)</button>';
+      '<button id="buyVipPolyPanelBtn" class="polygon-pay-btn" style="width:100%;"><span class="poly-icon"></span> Comprar VIP com Polygon (' + VIP_PRICE_POL.toFixed(2) + ' POL)</button>';
   }
 
   const polyBtn = document.getElementById('buyVipPolyPanelBtn');
@@ -3649,13 +3632,6 @@ function renderMatchPanel(){
         pricePOL: VIP_PRICE_POL,
         onSuccess: function(tx){ activateVipReal(tx); }
       });
-    });
-  }
-
-  const btn = document.getElementById('toggleVipBtn');
-  if(btn){
-    btn.addEventListener('click', function(){
-      if(isVip) deactivateVipDemo(); else activateVipDemo();
     });
   }
 }
@@ -5586,8 +5562,7 @@ function renderEquipmentPanel(){
       '<span class="equip-item-info" style="flex:1 1 100%;"><b>Passe Diario / Battle Pass</b><br><small>Libera pontuar no Ranking Diario (PvP e Sobrevivencia) ate as 21h</small></span>' +
       (hasPass
         ? '<span class="rank-pass-status">\u2705 Ativo hoje</span>'
-        : '<button class="polygon-pay-btn buy-pass-poly-btn" style="flex:1;min-width:200px;"><span class="poly-icon"></span> Comprar com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL)</button>' +
-          '<button class="daily-btn buy-pass-btn" style="background:#2a1c3d;font-size:11px;">Comprar Demo</button>') +
+        : '<button class="polygon-pay-btn buy-pass-poly-btn" style="flex:1;min-width:200px;"><span class="poly-icon"></span> Comprar com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL)</button>') +
     '</div>';
 
   const byChar = {};
