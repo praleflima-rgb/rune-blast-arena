@@ -1558,7 +1558,7 @@ function getCharacterSprite(key){
 // as chaves down/up/right dele aqui - "left" nunca precisa de arquivo
 // proprio, e sempre o "right" espelhado.
 const CHARACTER_DIRECTIONAL_SPRITE_SOURCES = {
-  vesper: { down:'assets/vesper_down.png', up:'assets/vesper_up.png', right:'assets/vesper_right.png' }, // so tem perfil DIREITO - "left" espelha
+  vesper: { down:'assets/vesper_down.png', up:'assets/vesper_up.png', right:'assets/vesper_right.png', left:'assets/vesper_left.png' },
   kael: { down:'assets/kael_down.png', up:'assets/kael_up.png', right:'assets/kael_right.png' }, // so tem perfil DIREITO - "left" espelha
   kendra: { down:'assets/kendra_down.png', up:'assets/kendra_up.png', left:'assets/kendra_left.png' }, // so tem perfil ESQUERDO - "right" espelha
   lyra: { down:'assets/lyra_down.png', up:'assets/lyra_up.png', left:'assets/lyra_left.png' }, // so tem perfil ESQUERDO - "right" espelha
@@ -1596,7 +1596,7 @@ function getDirectionalSprite(key, dir){
   return { img: img, mirror: mirror };
 }
 
-// Sprites de CORRIDA ANIMADA DIRECIONAIS (6 frames dedicados por direcao: down, up, right; left espelha right)
+// Sprites de CORRIDA ANIMADA DIRECIONAIS (6 frames dedicados por direcao: down, up, right, left)
 const CHARACTER_DIRECTIONAL_RUN_SOURCES = {
   vesper: {
     down: [
@@ -1613,6 +1613,11 @@ const CHARACTER_DIRECTIONAL_RUN_SOURCES = {
       'assets/vesper_run_right_1.png', 'assets/vesper_run_right_2.png',
       'assets/vesper_run_right_3.png', 'assets/vesper_run_right_4.png',
       'assets/vesper_run_right_5.png', 'assets/vesper_run_right_6.png'
+    ],
+    left: [
+      'assets/vesper_run_left_1.png', 'assets/vesper_run_left_2.png',
+      'assets/vesper_run_left_3.png', 'assets/vesper_run_left_4.png',
+      'assets/vesper_run_left_5.png', 'assets/vesper_run_left_6.png'
     ]
   }
 };
@@ -1662,14 +1667,19 @@ const characterRunSpriteImages = {};
 })();
 
 function getCharacterRunSprite(key, dir, now){
-  // 1. Tenta carregar os frames direcionais dedicados (down / up / right)
+  // 1. Tenta carregar os frames direcionais dedicados (down / up / right / left)
   const dirSet = characterDirectionalRunImages[key];
   if(dirSet){
     let lookupDir = dir || 'down';
     let mirror = false;
     if(lookupDir === 'left'){
-      lookupDir = 'right';
-      mirror = true;
+      if(dirSet.left && dirSet.left.length){
+        lookupDir = 'left';
+        mirror = false;
+      } else if(dirSet.right && dirSet.right.length){
+        lookupDir = 'right';
+        mirror = true;
+      }
     }
     const frames = dirSet[lookupDir] || dirSet.down;
     if(frames && frames.length){
@@ -8108,7 +8118,8 @@ CrazySDK.init().then(function(){
 GamePixSDK.init();
 (function trackGamePixLoading(){
   const allImages = Object.values(characterSpriteImages)
-    .concat(Object.values(characterDirectionalSpriteImages).flatMap(function(set){ return Object.values(set); }));
+    .concat(Object.values(characterDirectionalSpriteImages).flatMap(function(set){ return Object.values(set); }))
+    .concat(Object.values(characterDirectionalRunImages).flatMap(function(set){ return Object.values(set).flatMap(function(arr){ return arr; }); }));
   const total = allImages.length || 1;
   const startedAt = Date.now();
   const SAFETY_TIMEOUT_MS = 6000;
