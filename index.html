@@ -1156,6 +1156,8 @@ async function loadProfileFromSupabase(userId, usernameHint){
     try{ if(dailyPassCache) localStorage.setItem(DAILY_PASS_KEY, dailyPassCache); }catch(e){ /* localStorage indisponivel */ }
     playerUsername = data.username || ('Mago' + Math.floor(1000 + Math.random()*9000));
   }
+  // Abre o canal Realtime do ranking logo apos carregar o perfil
+  if(typeof subscribeToLiveRank === 'function') subscribeToLiveRank();
 }
 
 // Confere se ha sessao valida; sem ela, manda pra tela de login. Com
@@ -4320,6 +4322,63 @@ function refreshDailyRankPanels(){
     .catch(function(err){ console.warn('[Ranking Diario] erro ao atualizar:', err.message); });
 }
 
+/* ============================================================
+   RANKING DIARIO EM TEMPO REAL (Supabase Realtime)
+   Qualquer INSERT/UPDATE em daily_rank com o cycle_date
+   atual dispara uma atualizacao automatica no painel - todos
+   os jogadores veem o rank ao vivo sem precisar recarregar.
+============================================================ */
+let liveRankChannel = null;
+let liveRankCycleKey = null;
+
+function subscribeToLiveRank(){
+  if(!supabaseConfigured) return;
+  const cycleKey = getCycleDateKey();
+
+  // Ja esta inscrito no ciclo correto - nao abre canal duplicado
+  if(liveRankChannel && liveRankCycleKey === cycleKey) return;
+
+  // Fecha canal antigo (virada de ciclo ou primeiro uso)
+  unsubscribeLiveRank();
+  liveRankCycleKey = cycleKey;
+
+  liveRankChannel = supabaseClient
+    .channel('daily-rank-live-' + cycleKey)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'daily_rank',
+      filter: 'cycle_date=eq.' + cycleKey
+    }, function(payload){
+      const mode = (payload.new && payload.new.mode) || (payload.old && payload.old.mode);
+      if(mode === 'survival' || mode === 'pvp'){
+        fetchDailyRankFromSupabase(mode).then(function(){
+          const overlay = document.getElementById('overlay');
+          if(overlay && !overlay.classList.contains('hidden')) renderDailyRankPanel();
+        });
+      }
+    })
+    .subscribe(function(status){
+      if(status === 'SUBSCRIBED')
+        console.log('[Ranking Realtime] canal aberto para ciclo', cycleKey);
+    });
+
+  // Garante que na virada de ciclo o canal e reaberto com o novo cycle_date
+  const msAteCiclo = getCycleEndTimestamp(cycleKey) - Date.now() + 2000;
+  if(msAteCiclo > 0){
+    setTimeout(function(){
+      if(liveRankCycleKey === cycleKey) subscribeToLiveRank();
+    }, msAteCiclo);
+  }
+}
+
+function unsubscribeLiveRank(){
+  if(!liveRankChannel) return;
+  try{ supabaseClient.removeChannel(liveRankChannel); }catch(e){ /* silencioso */ }
+  liveRankChannel = null;
+  liveRankCycleKey = null;
+}
+
 function submitDailyRankPointsToSupabase(mode, points, placement){
   if(!supabaseConfigured || !currentUserId) return;
   supabaseClient.rpc('add_daily_rank_points', {
@@ -4659,8 +4718,14 @@ function placeRune(e){
   if(gameState!=='playing') return;
 
   if(gameMode === 'survival'){
-    const human = survivalHeroes[0];
-    if(human && human.alive) heroPlaceBomb(human, 'player', survivalHeroes);
+    // Usa o slot correto: no modo online mySlot pode ser 2, 3 ou 4
+    const mySlot = SurvivalNetworkManager.getMySlot ? SurvivalNetworkManager.getMySlot() : 1;
+    const human = survivalHeroes[mySlot - 1] || survivalHeroes[0];
+    if(human && human.alive && !human.isRemote){
+      const col = Math.floor(human.x), row = Math.floor(human.y);
+      const placed = heroPlaceBomb(human, human.heroId, survivalHeroes);
+      if(placed) SurvivalNetworkManager.sendBombPlace(mySlot, col, row);
+    }
     return;
   }
   if(gameMode === 'pvp'){
@@ -4878,6 +4943,15 @@ function explodeRune(rune){
   }
 
   updateHUD();
+
+  // Sincroniza a explosao com outros jogadores no modo Sobrevivencia Online
+  if(gameMode === 'survival'){
+    const mySlot = SurvivalNetworkManager.getMySlot ? SurvivalNetworkManager.getMySlot() : 1;
+    const localHero = survivalHeroes[mySlot - 1] || survivalHeroes[0];
+    if(localHero && rune.owner === localHero.heroId){
+      SurvivalNetworkManager.sendBombExplode(mySlot, rune.col, rune.row);
+    }
+  }
 }
 
 function triggerElementalBurst(col,row,now){
@@ -7144,6 +7218,146 @@ const NetworkManager = (function(){
   };
 })();
 
+/* ============================================================
+   SURVIVAL NETWORK MANAGER
+   Matchmaking e sincronizacao em tempo real para o Modo
+   Sobrevivencia (1-4 jogadores humanos + bots completam ate 4).
+   Usa survival_queue + survival_matches (Supabase) para parear
+   e um canal Broadcast para sincronizar a partida ao vivo.
+   Espelhado no NetworkManager do PvP mas suporta ate 4 slots.
+============================================================ */
+const SurvivalNetworkManager = (function(){
+  const handlers = {};
+  let waitSubs = [];          // subscricoes de escuta passiva
+  let pollIntervalId = null;  // busca ativa periodica
+  let broadcastChannel = null;
+  let myMatchId = null;
+  let mySlot = 1;             // slot 1-4 nesta partida
+  let lastMoveSentAt = 0;
+  const MOVE_SEND_INTERVAL_MS = 70;
+
+  function isEnabled(){ return !!supabaseConfigured; }
+  function on(event, cb){ handlers[event] = cb; }
+  function emit(event, data){ if(handlers[event]) handlers[event](data); }
+
+  function cleanupListeners(){
+    if(pollIntervalId){ clearInterval(pollIntervalId); pollIntervalId = null; }
+    waitSubs.forEach(function(sub){ try{ supabaseClient.removeChannel(sub); }catch(e){} });
+    waitSubs = [];
+  }
+
+  function cancelSearch(){
+    cleanupListeners();
+    if(currentUserId){
+      supabaseClient.from('survival_queue').delete().eq('user_id', currentUserId).then(function(){});
+    }
+  }
+
+  function handleMatched(row){
+    cleanupListeners();
+    myMatchId = row.match_id || row.id;
+    mySlot    = row.my_slot  || 1;
+
+    // Canal broadcast para sincronizar a partida ao vivo
+    broadcastChannel = supabaseClient
+      .channel('survival-match-' + myMatchId)
+      .on('broadcast', {event:'survMove'},       function(msg){ emit('remoteMove',       msg.payload); })
+      .on('broadcast', {event:'survBombPlace'},   function(msg){ emit('remoteBombPlace',  msg.payload); })
+      .on('broadcast', {event:'survBombExplode'}, function(msg){ emit('remoteBombExplode',msg.payload); })
+      .on('broadcast', {event:'survLeft'},        function(msg){ emit('playerLeft',       msg.payload); })
+      .subscribe();
+
+    emit('matchFound', {
+      matchId:         myMatchId,
+      seed:            row.seed,
+      mySlot:          mySlot,
+      player1Username: row.player1_username, player1Char: row.player1_char,
+      player2Username: row.player2_username, player2Char: row.player2_char,
+      player3Username: row.player3_username, player3Char: row.player3_char,
+      player4Username: row.player4_username, player4Char: row.player4_char
+    });
+  }
+
+  function findMatch(charIndex){
+    const myId       = currentUserId;
+    const myUsername = playerUsername || playerName;
+
+    // Escuta passiva: se alguem criar uma partida que inclui este jogador,
+    // o evento INSERT em survival_matches chega imediatamente via Realtime.
+    ['player1_id','player2_id','player3_id','player4_id'].forEach(function(col){
+      const sub = supabaseClient
+        .channel('surv-wait-' + col + '-' + myId)
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'survival_matches',
+          filter: col + '=eq.' + myId
+        }, function(payload){
+          const r   = payload.new;
+          const slotMap = {player1_id:1, player2_id:2, player3_id:3, player4_id:4};
+          handleMatched({
+            match_id: r.id, seed: r.seed, my_slot: slotMap[col],
+            player1_username: r.player1_username, player1_char: r.player1_char,
+            player2_username: r.player2_username, player2_char: r.player2_char,
+            player3_username: r.player3_username, player3_char: r.player3_char,
+            player4_username: r.player4_username, player4_char: r.player4_char
+          });
+        })
+        .subscribe();
+      waitSubs.push(sub);
+    });
+
+    // Busca ativa: o proprio cliente tenta criar o match a cada 2.5s
+    function attempt(){
+      supabaseClient.rpc('try_match_survival', {
+        p_username:   myUsername,
+        p_char_index: charIndex
+      }).then(function(res){
+        const row = res.data && res.data[0];
+        if(row && row.match_id) handleMatched(row);
+      }).catch(function(err){ console.warn('[Survival Matchmaking] tentativa falhou:', err.message); });
+    }
+    attempt();
+    pollIntervalId = setInterval(attempt, 2500);
+  }
+
+  function disconnect(){
+    cleanupListeners();
+    if(broadcastChannel){
+      try{ broadcastChannel.send({type:'broadcast', event:'survLeft', payload:{slot:mySlot}}); }catch(e){}
+      supabaseClient.removeChannel(broadcastChannel);
+      broadcastChannel = null;
+    }
+    myMatchId = null;
+  }
+
+  function send(type, payload){
+    if(type === 'findMatch'){ findMatch(payload.charIndex || 0); return; }
+    if(!broadcastChannel) return;
+    broadcastChannel.send({type:'broadcast', event: type, payload: payload});
+  }
+
+  function sendMove(slot, x, y, dir, moving){
+    const now = performance.now();
+    if(now - lastMoveSentAt < MOVE_SEND_INTERVAL_MS) return;
+    lastMoveSentAt = now;
+    send('survMove', {slot:slot, x:x, y:y, dir:dir, moving:moving});
+  }
+  function sendBombPlace(slot, col, row){ send('survBombPlace',   {slot:slot, col:col, row:row}); }
+  function sendBombExplode(slot, col, row){ send('survBombExplode', {slot:slot, col:col, row:row}); }
+
+  function getMySlot(){ return mySlot; }
+
+  return {
+    isEnabled: isEnabled,
+    on: on, send: send,
+    cancelSearch: cancelSearch,
+    disconnect: disconnect,
+    sendMove: sendMove,
+    sendBombPlace: sendBombPlace,
+    sendBombExplode: sendBombExplode,
+    getMySlot: getMySlot
+  };
+})();
+
 let pvpP1 = null, pvpP2 = null;
 let pvpMatchOver = false;
 let pvpCloseState = null;
@@ -7937,6 +8151,7 @@ function startSurvivalMatchOnline(){
       survivalWaitingForPlayers = false;
       if(mmOverlay) mmOverlay.classList.add('hidden-mode');
       stopMatchmakingMusicNow();
+      SurvivalNetworkManager.cancelSearch();
       location.reload();
     };
   }
@@ -7946,6 +8161,66 @@ function startSurvivalMatchOnline(){
   clearMatchmakingTimers();
   matchmakingCountdownIntervalId = setInterval(updateMatchmakingCountdownDisplay, 250);
   matchmakingTimeoutId = setTimeout(handleSurvivalMatchmakingTimeout, MATCHMAKING_TIMEOUT_MS);
+
+  // --- MATCHMAKING REAL VIA SUPABASE ---
+  if(SurvivalNetworkManager.isEnabled() && currentUserId){
+    // matchFound: chegou resposta de parceria com pelo menos 1 humano
+    SurvivalNetworkManager.on('matchFound', function(data){
+      if(!survivalWaitingForPlayers) return; // timeout ja disparou
+      clearMatchmakingTimers();
+      survivalWaitingForPlayers = false;
+      const mm = document.getElementById('matchmakingOverlay');
+      if(mm) mm.classList.add('hidden-mode');
+      fadeOutMatchmakingMusic(500);
+      AudioEngine.matchFound && AudioEngine.matchFound();
+      startSurvivalMatchWithOnlinePlayers(data);
+    });
+
+    // remoteMove: posicao de outro heroi humano chegou pela rede
+    SurvivalNetworkManager.on('remoteMove', function(data){
+      const h = survivalHeroes[data.slot - 1];
+      if(h && h.isRemote){
+        h.x = data.x; h.y = data.y;
+        h.dir = data.dir; h.moving = data.moving;
+      }
+    });
+
+    // remoteBombPlace: outro jogador colocou uma bomba
+    SurvivalNetworkManager.on('remoteBombPlace', function(data){
+      const h = survivalHeroes[data.slot - 1];
+      if(!h) return;
+      runes.push({
+        col: data.col, row: data.row,
+        placedAt: performance.now(), exploded: false,
+        owner: h.heroId, range: h.blastRange,
+        leftByPlacer: false, clearedFor: {}
+      });
+    });
+
+    // remoteBombExplode: detonacao sincronizada
+    SurvivalNetworkManager.on('remoteBombExplode', function(data){
+      const r = runes.find(function(rr){
+        return !rr.exploded && rr.col === data.col && rr.row === data.row;
+      });
+      if(r) explodeRune(r);
+    });
+
+    // playerLeft: jogador remoto desconectou - vira bot
+    SurvivalNetworkManager.on('playerLeft', function(data){
+      const h = data && data.slot ? survivalHeroes[data.slot - 1] : null;
+      if(h && h.isRemote){
+        h.isRemote = false;
+        h.isBot    = true;
+        h.nextDecision = 0;
+        h.dxDir = [0,0];
+        assignBotIdentity(h);
+        logStatus(h.colors.name + ' desconectou. Bot assumiu o controle.', 4000);
+      }
+    });
+
+    SurvivalNetworkManager.send('findMatch', {charIndex: selectedCharacterIndex});
+  }
+  // Se nao tem Supabase, espera o timeout que cai nos bots (comportamento original)
 }
 
 function handleSurvivalMatchmakingTimeout(){
@@ -7955,6 +8230,7 @@ function handleSurvivalMatchmakingTimeout(){
   const mmOverlay = document.getElementById('matchmakingOverlay');
   if(mmOverlay) mmOverlay.classList.add('hidden-mode');
   fadeOutMatchmakingMusic(500);
+  SurvivalNetworkManager.cancelSearch();
   startSurvivalMatchWithBots();
 }
 
@@ -7966,8 +8242,9 @@ function startSurvivalMatchWithBots(){
 
   survivalHeroes = spawns.map(function(sp, i){
     const h = makeArenaHero(sp.col, sp.row, selectedCharacterIndex+i);
-    h.isBot = i > 0;
-    h.heroId = i===0 ? 'player' : ('bot'+i);
+    h.isBot    = i > 0;
+    h.isRemote = false;
+    h.heroId   = i===0 ? 'player' : ('bot'+i);
     h.nextDecision = 0;
     h.dxDir = [0,0];
     if(h.isBot) assignBotIdentity(h);
@@ -7992,6 +8269,63 @@ function startSurvivalMatchWithBots(){
   logStatus('Partida iniciada! Jogadores Reais: 1 | Bots: 3', 6000);
 }
 
+// Iniciada quando SurvivalNetworkManager encontrou pelo menos 1 jogador humano.
+// Slots sem jogador humano sao preenchidos com Bots taticos.
+function startSurvivalMatchWithOnlinePlayers(data){
+  // data = { seed, mySlot, player1Username, player1Char, player2Username, ... }
+  const spawns = [
+    {row:1,col:1}, {row:1,col:COLS-2}, {row:ROWS-2,col:1}, {row:ROWS-2,col:COLS-2}
+  ];
+  const slotInfo = [
+    {username: data.player1Username, char: data.player1Char},
+    {username: data.player2Username, char: data.player2Char},
+    {username: data.player3Username, char: data.player3Char},
+    {username: data.player4Username, char: data.player4Char}
+  ];
+
+  generateArenaGrid(0.28, spawns, data.seed);
+
+  let humanCount = 0, botCount = 0;
+  survivalHeroes = spawns.map(function(sp, i){
+    const slot   = i + 1;                          // slots 1-4
+    const info   = slotInfo[i];
+    const isMe   = (slot === data.mySlot);
+    const hasHuman = !!info.username;              // slot preenchido pelo servidor
+    const charIdx  = (info.char != null) ? info.char : (selectedCharacterIndex + i);
+
+    const h = makeArenaHero(sp.col, sp.row, charIdx);
+    h.survivalSlot = slot;
+    h.isRemote     = hasHuman && !isMe;            // humano remoto
+    h.isBot        = !hasHuman;                    // bot de preenchimento
+    h.heroId       = isMe ? 'player' : (hasHuman ? ('remote' + slot) : ('bot' + slot));
+    h.nextDecision = 0;
+    h.dxDir        = [0,0];
+
+    if(h.isBot){ assignBotIdentity(h); botCount++; }
+    else if(h.isRemote){
+      // exibe o apelido do jogador remoto no heroi
+      h.remoteUsername = info.username;
+      humanCount++;
+    } else {
+      humanCount++;
+      applyEquippedItemEffects(h, false);
+    }
+    return h;
+  });
+
+  runes = []; flames = []; particles = []; powerups = []; coinPickups = []; webs = [];
+  door = null; boss = null; monsters = [];
+
+  survivalCloseState = createArenaCloseState(performance.now());
+  survivalMatchOver  = false;
+  survivalDeathOrder = [];
+
+  gameState = 'playing';
+  updateSurvivalHud();
+  playSurvivalMusic();
+  logStatus('Partida Online! Jogadores Reais: ' + humanCount + ' | Bots: ' + botCount, 6000);
+}
+
 // IA Tática dos Bots de Sobrevivência (Todos contra Todos - 4 heróis)
 function updateSurvivalBot(bot, dt, now){
   if(!bot.alive) return;
@@ -8010,9 +8344,14 @@ function updateSurvivalMode(dt, now){
   if(survivalMatchOver) return;
 
   updateSurvivalMusicUrgency(now);
-  const human = survivalHeroes[0];
+
+  // Encontra o heroi local (slot = mySlot, ou indice 0 no modo so-bots)
+  const mySlot = SurvivalNetworkManager.getMySlot ? SurvivalNetworkManager.getMySlot() : 1;
+  const human  = survivalHeroes[mySlot - 1] || survivalHeroes[0];
   const humanWasAlive = human.alive;
-  if(human.alive){
+
+  // Controle do jogador local
+  if(human.alive && !human.isRemote){
     let dx=0, dy=0;
     if(keys.left) dx-=1; if(keys.right) dx+=1;
     if(keys.up) dy-=1; if(keys.down) dy+=1;
@@ -8021,8 +8360,18 @@ function updateSurvivalMode(dt, now){
     if(dx>0) human.dir='right'; else if(dx<0) human.dir='left'; else if(dy>0) human.dir='down'; else if(dy<0) human.dir='up';
     heroTryMoveX(human,'player',dx,human.speed,dt);
     heroTryMoveY(human,'player',dy,human.speed,dt);
+    // Envia posicao local pela rede (throttled a ~14fps)
+    SurvivalNetworkManager.sendMove(mySlot, human.x, human.y, human.dir, human.moving);
   }
-  for(let i=1;i<survivalHeroes.length;i++) updateSurvivalBot(survivalHeroes[i], dt, now);
+
+  // Atualiza bots e herois remotos (os remotos so recebem posicao via rede;
+  // a IA toma conta se o jogador remoto desconectar e virar bot)
+  for(let i=0; i<survivalHeroes.length; i++){
+    const h = survivalHeroes[i];
+    if(h === human) continue;    // heroi local ja atualizado acima
+    if(h.isBot) updateSurvivalBot(h, dt, now); // bots rodam IA normalmente
+    // isRemote: posicao aplicada diretamente em SurvivalNetworkManager.on('remoteMove')
+  }
 
   const heroMap = {};
   survivalHeroes.forEach(function(h){ heroMap[h.heroId] = h; });
@@ -8094,7 +8443,12 @@ function updateSurvivalMode(dt, now){
     }
 
     let pointsEarned = 0;
-    const myPlacement = placements['player'];
+    // No modo online o heroId local pode ser 'player', 'remote2', 'remote3'...
+    // sempre usamos o heroId do heroi que o jogador controla (human.heroId)
+    const myHeroId = human ? human.heroId : 'player';
+    const myPlacement = placements[myHeroId];
+    // Desconecta a rede ao fim da partida
+    try{ SurvivalNetworkManager.disconnect(); }catch(e){}
     // cada chamada protegida por si so - se uma falhar (analytics, rede,
     // pontuacao), as outras e a tela de resultado abaixo NAO ficam travadas
     try{ GamePixSDK.pingGameOver('survival', myPlacement ? (5 - myPlacement) : 0); }catch(e){ console.error('[Sobrevivencia] GamePixSDK.pingGameOver falhou:', e); }
