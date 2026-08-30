@@ -983,7 +983,7 @@
         </div>
       </div>
       <div class="accordion-item">
-        <button class="accordion-header" data-target="acc-daily">&#127873; Recompensas DiÃ¡rias</button>
+        <button class="accordion-header" data-target="acc-daily">&#127873; Recompensas Diárias</button>
         <div class="accordion-body" id="acc-daily">
           <div class="daily-panel" id="dailyPanel"><!-- preenchido via JS: renderDailyPanel() --></div>
         </div>
@@ -995,7 +995,7 @@
         </div>
       </div>
       <div class="accordion-item">
-        <button class="accordion-header" data-target="acc-rank">&#127942; Ranking DiÃ¡rio</button>
+        <button class="accordion-header" data-target="acc-rank">&#127942; Ranking Diário</button>
         <div class="accordion-body" id="acc-rank">
           <div class="daily-panel" id="dailyRankPanel"><!-- preenchido via JS: renderDailyRankPanel() --></div>
         </div>
@@ -3637,6 +3637,9 @@ function renderInvitePanel(){
 }
 
 function tryStartNewRun(){
+  clearArenaResultTimeout();
+  const overlay = document.getElementById('overlay');
+  if(overlay) overlay.classList.add('hidden');
   if((selectedGameMode === 'pvp' || selectedGameMode === 'survival') && !hasActiveDailyPass()){
     showBuyPassRequiredScreen();
     return;
@@ -3649,7 +3652,7 @@ function tryStartNewRun(){
     stopAllEndOfMatchAudio();
     fadeOutMenuMusic();
     fadeOutShopMusic(300);
-    document.getElementById('overlay').classList.add('hidden');
+    if(overlay) overlay.classList.add('hidden');
     if(isFirstEverMatch()){
       processReferralFirstMatchIfNeeded();
       markHasPlayed();
@@ -4135,7 +4138,7 @@ function renderLeaderboardPanel(){
    cosmetico do TOP 3 do dia. Ver texto de regras nos Termos do jogo.
 ============================================================ */
 const RANK_MODES = [
-  {id:'survival', name:'SobrevivÃªncia', icon:'\u2620\uFE0F'},
+  {id:'survival', name:'Sobrevivência', icon:'\u2620\uFE0F'},
   {id:'pvp',       name:'PvP',           icon:'\u2694\uFE0F'}
 ];
 const DAILY_PASS_PRICE_CENTS = 300; // R$3,00 - passe unico, vale para os dois modos
@@ -4353,8 +4356,7 @@ function subscribeToLiveRank(){
       const mode = (payload.new && payload.new.mode) || (payload.old && payload.old.mode);
       if(mode === 'survival' || mode === 'pvp'){
         fetchDailyRankFromSupabase(mode).then(function(){
-          const overlay = document.getElementById('overlay');
-          if(overlay && !overlay.classList.contains('hidden')) renderDailyRankPanel();
+          renderDailyRankPanel();
         });
       }
     })
@@ -4389,7 +4391,7 @@ function submitDailyRankPointsToSupabase(mode, points, placement){
     p_placement: placement
   }).then(function(res){
     if(res.error) console.warn('[Ranking Diario] falha ao enviar pontos:', res.error.message);
-    else fetchDailyRankFromSupabase(mode);
+    else fetchDailyRankFromSupabase(mode).then(function(){ renderDailyRankPanel(); });
   });
 }
 
@@ -4434,7 +4436,7 @@ function renderRankBoardHtml(mode){
   const data = loadDailyRank(mode);
   // usa o ranking COMPARTILHADO (Supabase) quando disponivel; o local so
   // aparece como fallback (offline / sem conta logada)
-  const players = sharedDailyRankCache[mode] || data.players;
+  const players = (sharedDailyRankCache[mode] !== null) ? sharedDailyRankCache[mode] : data.players;
   const sorted = players.slice().sort(function(a,b){ return b.points-a.points; });
   const myEntry = sorted.find(function(p){ return p.name===myName; });
   const myRank = myEntry ? sorted.indexOf(myEntry)+1 : null;
@@ -7378,8 +7380,16 @@ function startPvpMatch(){
   // ficam desligados (ver applyEquippedItemEffects abaixo).
   pvpIsRanked = hasActiveDailyPass();
 
+  pvpP1 = null;
+  pvpP2 = null;
+  pvpCloseState = null;
+
   runes = []; flames = []; particles = []; powerups = []; coinPickups = []; webs = [];
   door = null; boss = null; monsters = [];
+
+  clearArenaResultTimeout();
+  const overlay = document.getElementById('overlay');
+  if(overlay) overlay.classList.add('hidden');
 
   // Sempre passa pela busca de 30s (mesmo sem nenhum servidor configurado) -
   // se ninguem for encontrado, handleMatchmakingTimeout preenche com Bot.
@@ -7388,6 +7398,9 @@ function startPvpMatch(){
 
 // Modo local: 2 jogadores no mesmo aparelho (comportamento original, intacto).
 function startPvpMatchLocal(){
+  clearArenaResultTimeout();
+  const overlay = document.getElementById('overlay');
+  if(overlay) overlay.classList.add('hidden');
   generateArenaGrid(0.42, [{row:1,col:1},{row:ROWS-2,col:COLS-2}]);
   pvpP1 = makeArenaHero(1, 1, selectedCharacterIndex);
   pvpP2 = makeArenaHero(COLS-2, ROWS-2, selectedCharacterIndex+1);
@@ -7434,9 +7447,12 @@ function updateMatchmakingCountdownDisplay(){
 function handleMatchmakingTimeout(){
   if(!pvpWaitingForOpponent) return; // ja achou partida nesse meio tempo
   clearMatchmakingTimers();
+  clearArenaResultTimeout();
   pvpWaitingForOpponent = false;
   const mmOverlay = document.getElementById('matchmakingOverlay');
   if(mmOverlay) mmOverlay.classList.add('hidden-mode');
+  const overlay = document.getElementById('overlay');
+  if(overlay) overlay.classList.add('hidden');
   NetworkManager.cancelSearch();
   fadeOutMatchmakingMusic(500);
   startPvpMatchWithBot();
@@ -7446,6 +7462,9 @@ function handleMatchmakingTimeout(){
 // sistema e comeca a partida IMEDIATAMENTE - sem modal, sem exigir escolha
 // manual, pra garantir que a partida nunca fique travada esperando por sempre.
 function startPvpMatchWithBot(){
+  clearArenaResultTimeout();
+  const overlay = document.getElementById('overlay');
+  if(overlay) overlay.classList.add('hidden');
   pvpIsOnline = false;
   startPvpMatchLocal();
   pvpP2.isBot = true;
@@ -7458,6 +7477,9 @@ function startPvpMatchWithBot(){
 
 // Modo online: conecta no servidor, entra na fila de pareamento com radar animado de 30s
 function startPvpMatchOnline(){
+  clearArenaResultTimeout();
+  const overlay = document.getElementById('overlay');
+  if(overlay) overlay.classList.add('hidden');
   pvpWaitingForOpponent = true;
   gameState = 'playing';
   hudEls.phaseTag.textContent = 'PvP Online';
@@ -7482,6 +7504,7 @@ function startPvpMatchOnline(){
   if(cancelBtn){
     cancelBtn.onclick = function(){
       clearMatchmakingTimers();
+      clearArenaResultTimeout();
       pvpWaitingForOpponent = false;
       if(mmOverlay) mmOverlay.classList.add('hidden-mode');
       stopMatchmakingMusicNow();
@@ -7498,8 +7521,11 @@ function startPvpMatchOnline(){
 
   NetworkManager.on('matchFound', function(data){
     clearMatchmakingTimers();
+    clearArenaResultTimeout();
     const mm = document.getElementById('matchmakingOverlay');
     if(mm) mm.classList.add('hidden-mode');
+    const overlay = document.getElementById('overlay');
+    if(overlay) overlay.classList.add('hidden');
     stopMatchmakingMusicNow();
     AudioEngine.matchFound();
 
@@ -7539,7 +7565,8 @@ function startPvpMatchOnline(){
     if(!pvpMatchOver){
       pvpMatchOver = true;
       playVictoryFanfare();
-      setTimeout(function(){ showArenaResult('Voce venceu!', 'O oponente desconectou.'); }, 300);
+      clearArenaResultTimeout();
+      arenaResultTimeoutId = setTimeout(function(){ showArenaResult('Voce venceu!', 'O oponente desconectou.'); }, 300);
     }
   });
 
@@ -7549,16 +7576,20 @@ function startPvpMatchOnline(){
       pvpMatchOver = true;
       fadeOutPvpArenaMusic(1500);
       stopClosingAmbience(closingAmbiencePvp);
-      setTimeout(function(){ showArenaResult('Sessao encerrada', 'Sua conta entrou em outro aparelho.'); }, 200);
+      clearArenaResultTimeout();
+      arenaResultTimeoutId = setTimeout(function(){ showArenaResult('Sessao encerrada', 'Sua conta entrou em outro aparelho.'); }, 200);
     }
   });
 
   NetworkManager.on('disconnected', function(){
     if(pvpWaitingForOpponent){
       clearMatchmakingTimers();
+      clearArenaResultTimeout();
       pvpWaitingForOpponent = false;
       const mm = document.getElementById('matchmakingOverlay');
       if(mm) mm.classList.add('hidden-mode');
+      const overlay = document.getElementById('overlay');
+      if(overlay) overlay.classList.add('hidden');
       fadeOutMatchmakingMusic(500);
       startPvpMatchWithBot();
       return;
@@ -7567,7 +7598,8 @@ function startPvpMatchOnline(){
       pvpMatchOver = true;
       fadeOutPvpArenaMusic(1500);
       stopClosingAmbience(closingAmbiencePvp);
-      setTimeout(function(){ showArenaResult('Conexao perdida', 'Nao foi possivel manter a partida online.'); }, 200);
+      clearArenaResultTimeout();
+      arenaResultTimeoutId = setTimeout(function(){ showArenaResult('Conexao perdida', 'Nao foi possivel manter a partida online.'); }, 200);
     }
   });
 
@@ -7595,7 +7627,7 @@ function getOrCreateNetworkPlayerId(){
   }
 }
 
-const BOT_NAMES = ['Kael_BR','ArenaGhost','ShadowRune77','MysticBlaze','VaneX','Runa_Sombria','ThunderPeak','NightBlade22','Ecliptor','FeitiÃ§oNoturno'];
+const BOT_NAMES = ['Kael_BR','ArenaGhost','ShadowRune77','MysticBlaze','VaneX','Runa_Sombria','ThunderPeak','NightBlade22','Ecliptor','FeitiçoNoturno'];
 
 function assignBotIdentity(bot){
   bot.botName = BOT_NAMES[Math.floor(Math.random()*BOT_NAMES.length)];
@@ -7878,10 +7910,23 @@ function updatePvpMode(dt, now){
     const modeDesc = pvpIsOnline ? 'Partida de PvP Online' : (pvpP2.isBot ? 'Partida de PvP vs Bot' : 'Partida de PvP Local');
     const subtitle = modeDesc + ' encerrada.' +
       (pointsEarned > 0 ? ' Voce ganhou +' + pointsEarned + ' pontos no Ranking Diario!' : '');
-    // a tela de resultado SEMPRE aparece, mesmo que algo acima tenha falhado
-    setTimeout(function(){ showArenaResult(text, subtitle); }, 450);
+    clearArenaResultTimeout();
+    arenaResultTimeoutId = setTimeout(function(){ showArenaResult(text, subtitle); }, 450);
   }
   updatePvpHud();
+}
+
+function updatePvpHud(){
+  if(pvpWaitingForOpponent) return;
+  const elapsed = pvpCloseState ? Math.max(0, performance.now()-pvpCloseState.matchStartAt) : 0;
+  const modeLabel = pvpIsOnline ? 'PvP Online' : (pvpP2.isBot ? 'PvP vs Bot' : 'PvP Local');
+  hudEls.phaseTag.textContent = modeLabel + (pvpIsRanked?' (Ranqueada)':' (Livre)') + ' - ' + formatMMSS(elapsed);
+  const p2Label = pvpP2.isBot ? ('\u{1F916} ' + (pvpP2.botName||'Bot')) : '\u{1F7E7} P2';
+  hudEls.monsterTag.textContent = (pvpP1.alive?'\u{1F7E6} P1 vivo':'\u{1F7E6} P1 eliminado') + '   ' + (pvpP2.alive?(p2Label+' vivo'):(p2Label+' eliminado'));
+  hudEls.hearts.innerHTML = '';
+  hudEls.coinText.textContent = '-';
+  hudEls.runeCountText.textContent = '-';
+  hudEls.buffsRow.style.display = 'none';
 }
 
 function renderPvpMode(now){
@@ -8116,14 +8161,26 @@ function startSurvivalMatch(){
   // partida ranqueada = durante o evento livre e 100% ranqueado para todos, ou com passe ativo
   survivalIsRanked = hasActiveDailyPass();
 
+  survivalHeroes = [];
+  survivalCloseState = null;
+  survivalDeathOrder = [];
+
   runes = []; flames = []; particles = []; powerups = []; coinPickups = []; webs = [];
   door = null; boss = null; monsters = [];
+
+  clearArenaResultTimeout();
+  const overlay = document.getElementById('overlay');
+  if(overlay) overlay.classList.add('hidden');
 
   // Passa pela busca de 30s com radar animado (identico ao PvP)
   startSurvivalMatchOnline();
 }
 
 function startSurvivalMatchOnline(){
+  clearArenaResultTimeout();
+  const overlay = document.getElementById('overlay');
+  if(overlay) overlay.classList.add('hidden');
+
   survivalWaitingForPlayers = true;
   gameState = 'playing';
   hudEls.phaseTag.textContent = 'Sobrevivencia (4 Herois)';
@@ -8148,6 +8205,7 @@ function startSurvivalMatchOnline(){
   if(cancelBtn){
     cancelBtn.onclick = function(){
       clearMatchmakingTimers();
+      clearArenaResultTimeout();
       survivalWaitingForPlayers = false;
       if(mmOverlay) mmOverlay.classList.add('hidden-mode');
       stopMatchmakingMusicNow();
@@ -8168,9 +8226,12 @@ function startSurvivalMatchOnline(){
     SurvivalNetworkManager.on('matchFound', function(data){
       if(!survivalWaitingForPlayers) return; // timeout ja disparou
       clearMatchmakingTimers();
+      clearArenaResultTimeout();
       survivalWaitingForPlayers = false;
       const mm = document.getElementById('matchmakingOverlay');
       if(mm) mm.classList.add('hidden-mode');
+      const overlayEl = document.getElementById('overlay');
+      if(overlayEl) overlayEl.classList.add('hidden');
       fadeOutMatchmakingMusic(500);
       AudioEngine.matchFound && AudioEngine.matchFound();
       startSurvivalMatchWithOnlinePlayers(data);
@@ -8226,15 +8287,24 @@ function startSurvivalMatchOnline(){
 function handleSurvivalMatchmakingTimeout(){
   if(!survivalWaitingForPlayers) return;
   clearMatchmakingTimers();
+  clearArenaResultTimeout();
   survivalWaitingForPlayers = false;
   const mmOverlay = document.getElementById('matchmakingOverlay');
   if(mmOverlay) mmOverlay.classList.add('hidden-mode');
+  const overlay = document.getElementById('overlay');
+  if(overlay) overlay.classList.add('hidden');
   fadeOutMatchmakingMusic(500);
   SurvivalNetworkManager.cancelSearch();
   startSurvivalMatchWithBots();
 }
 
 function startSurvivalMatchWithBots(){
+  clearArenaResultTimeout();
+  const overlay = document.getElementById('overlay');
+  if(overlay) overlay.classList.add('hidden');
+  const mmOverlay = document.getElementById('matchmakingOverlay');
+  if(mmOverlay) mmOverlay.classList.add('hidden-mode');
+
   const spawns = [
     {row:1,col:1}, {row:1,col:COLS-2}, {row:ROWS-2,col:1}, {row:ROWS-2,col:COLS-2}
   ];
@@ -8272,6 +8342,12 @@ function startSurvivalMatchWithBots(){
 // Iniciada quando SurvivalNetworkManager encontrou pelo menos 1 jogador humano.
 // Slots sem jogador humano sao preenchidos com Bots taticos.
 function startSurvivalMatchWithOnlinePlayers(data){
+  clearArenaResultTimeout();
+  const overlay = document.getElementById('overlay');
+  if(overlay) overlay.classList.add('hidden');
+  const mm = document.getElementById('matchmakingOverlay');
+  if(mm) mm.classList.add('hidden-mode');
+
   // data = { seed, mySlot, player1Username, player1Char, player2Username, ... }
   const spawns = [
     {row:1,col:1}, {row:1,col:COLS-2}, {row:ROWS-2,col:1}, {row:ROWS-2,col:COLS-2}
@@ -8342,12 +8418,16 @@ function updateSurvivalBot(bot, dt, now){
 
 function updateSurvivalMode(dt, now){
   if(survivalMatchOver) return;
+  if(survivalWaitingForPlayers) return;
+  if(!survivalHeroes || survivalHeroes.length === 0) return;
+  if(!survivalCloseState) return;
 
   updateSurvivalMusicUrgency(now);
 
   // Encontra o heroi local (slot = mySlot, ou indice 0 no modo so-bots)
   const mySlot = SurvivalNetworkManager.getMySlot ? SurvivalNetworkManager.getMySlot() : 1;
   const human  = survivalHeroes[mySlot - 1] || survivalHeroes[0];
+  if(!human) return;
   const humanWasAlive = human.alive;
 
   // Controle do jogador local
@@ -8480,7 +8560,8 @@ function updateSurvivalMode(dt, now){
       ? 'Modo Sobrevivencia encerrado. +' + pointsEarned + ' pontos no Ranking Diario!'
       : 'Modo Sobrevivencia encerrado.';
     // a tela de resultado SEMPRE aparece, mesmo que algo acima tenha falhado
-    setTimeout(function(){ showArenaResult(text, subtitle); }, 450);
+    clearArenaResultTimeout();
+    arenaResultTimeoutId = setTimeout(function(){ showArenaResult(text, subtitle); }, 450);
   }
   updateSurvivalHud();
 }
@@ -8490,7 +8571,7 @@ function renderSurvivalMode(now){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(bgCanvas,0,0,bgCanvas.width,bgCanvas.height,0,0,canvas.width/dpr,canvas.height/dpr);
 
-  drawArenaWarnings(survivalCloseState, now);
+  if(survivalCloseState) drawArenaWarnings(survivalCloseState, now);
 
   drawRunes(now);
   drawFlames(now);
@@ -8499,13 +8580,15 @@ function renderSurvivalMode(now){
   drawParticles();
   renderExplosionParticles(ctx, offsetX, offsetY, tileSize);
 
-  const entities = [];
-  survivalHeroes.forEach(function(h){
-    if(!h.alive) return;
-    entities.push({y:h.y, draw:function(){ drawArenaHero(h, now); }});
-  });
-  entities.sort(function(a,b){ return a.y-b.y; });
-  for(const e of entities) e.draw();
+  if(survivalHeroes && survivalHeroes.length > 0){
+    const entities = [];
+    survivalHeroes.forEach(function(h){
+      if(!h.alive) return;
+      entities.push({y:h.y, draw:function(){ drawArenaHero(h, now); }});
+    });
+    entities.sort(function(a,b){ return a.y-b.y; });
+    for(const e of entities) e.draw();
+  }
 }
 
 function formatMMSS(ms){
@@ -8515,8 +8598,9 @@ function formatMMSS(ms){
 }
 
 function updateSurvivalHud(){
-  const alive = survivalHeroes.filter(function(h){ return h.alive; }).length;
-  const elapsed = Math.max(0, performance.now()-survivalCloseState.matchStartAt);
+  if(survivalWaitingForPlayers) return;
+  const alive = (survivalHeroes && survivalHeroes.length > 0) ? survivalHeroes.filter(function(h){ return h.alive; }).length : 0;
+  const elapsed = survivalCloseState ? Math.max(0, performance.now()-survivalCloseState.matchStartAt) : 0;
   hudEls.phaseTag.textContent = survivalIsRanked ? 'Sobrevivencia (Ranqueada)' : 'Sobrevivencia (Livre)';
   hudEls.monsterTag.textContent = '\u{1F480} ' + alive + ' vivos - ' + formatMMSS(elapsed);
   hudEls.hearts.innerHTML = '';
@@ -8555,7 +8639,8 @@ function quitCurrentMatch(){
     }
     try{ playDefeatTheme(); }catch(e){ console.error('[Sair] playDefeatTheme falhou:', e); }
     try{ NetworkManager.disconnect(); }catch(e){ console.error('[Sair] disconnect falhou:', e); }
-    setTimeout(function(){ showArenaResult('Voce desistiu', 'Partida encerrada por desistencia - a vitoria foi do oponente.'); }, 250);
+    clearArenaResultTimeout();
+    arenaResultTimeoutId = setTimeout(function(){ showArenaResult('Voce desistiu', 'Partida encerrada por desistencia - a vitoria foi do oponente.'); }, 250);
     return;
   }
 
@@ -8565,25 +8650,43 @@ function quitCurrentMatch(){
   location.reload();
 }
 
+let arenaResultTimeoutId = null;
+function clearArenaResultTimeout(){
+  if(arenaResultTimeoutId){
+    clearTimeout(arenaResultTimeoutId);
+    arenaResultTimeoutId = null;
+  }
+}
+
 // Tela de resultado compartilhada por PvP e Sobrevivencia.
 function showArenaResult(title, subtitle){
+  clearArenaResultTimeout();
   gameState = 'over';
   const overlay = document.getElementById('overlay');
+  if(!overlay) return;
   overlay.classList.remove('hidden');
   overlay.innerHTML =
     '<h1>' + title + '</h1>' +
     '<p>' + subtitle + '</p>' +
     '<button id="arenaRestartBtn">Jogar Novamente</button>' +
     '<button id="arenaMenuBtn" style="margin-top:8px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
-  document.getElementById('arenaRestartBtn').addEventListener('click', function(){
-    stopAllEndOfMatchAudio();
-    overlay.classList.add('hidden');
-    tryStartNewRun();
-  });
-  document.getElementById('arenaMenuBtn').addEventListener('click', function(){
-    stopAllEndOfMatchAudio();
-    location.reload();
-  });
+  const restartBtn = document.getElementById('arenaRestartBtn');
+  if(restartBtn){
+    restartBtn.addEventListener('click', function(){
+      clearArenaResultTimeout();
+      stopAllEndOfMatchAudio();
+      overlay.classList.add('hidden');
+      tryStartNewRun();
+    });
+  }
+  const menuBtn = document.getElementById('arenaMenuBtn');
+  if(menuBtn){
+    menuBtn.addEventListener('click', function(){
+      clearArenaResultTimeout();
+      stopAllEndOfMatchAudio();
+      location.reload();
+    });
+  }
 }
 
 /* ============================================================
