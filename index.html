@@ -925,11 +925,11 @@
     <h1>Rune Blast Arena</h1>
     <p class="tagline">Escolha o modo, escolha seu herói, e vá para a arena.</p>
 
-    <!-- Banner do Evento Especial (Passe Livre) -->
+    <!-- Banner do Evento Especial (Passe Livre & VIP) -->
     <div id="freeEventBanner" class="free-event-banner">
       <div class="feb-badge">✨ EVENTO ESPECIAL ✨</div>
-      <div class="feb-main-text">PASSE LIVRE LIBERADO PARA TODOS!</div>
-      <div class="feb-sub-text">Acesso 100% Grátis aos Modos Sobrevivência &amp; PvP &bull; Disputa pelo Prêmio TOP 1 de R$ 10 em $RBA</div>
+      <div class="feb-main-text">PASSE LIVRE &amp; VIP LIBERADOS PARA TODOS!</div>
+      <div class="feb-sub-text">Acesso 100% Grátis aos Modos Sobrevivência, PvP e Partidas Ilimitadas VIP &bull; Disputa pelo Prêmio TOP 1 de R$ 10 em $RBA</div>
       <div class="feb-timer-box">⏳ Encerra em <span id="febCountdown">--:--:--</span> (Amanhã às 21h BRT)</div>
     </div>
 
@@ -3408,6 +3408,10 @@ let vipState = loadVipState();
 let isVip = false; // flag/atributo do jogador pedido no escopo - mantida em dia por refreshVipFlag()
 
 function refreshVipFlag(){
+  if(isFreeEventActive()){
+    isVip = true;
+    return true;
+  }
   isVip = !!(vipState.active && Date.now() < vipState.expiresAt);
   return isVip;
 }
@@ -3761,7 +3765,14 @@ function renderMatchPanel(){
     ? '<div class="poly-wallet-status"><span class="poly-icon"></span> Carteira: <span class="poly-address-pill">' + PolygonWalletManager.getShortAddress(account) + '</span></div>'
     : '<div class="poly-wallet-status"><span class="poly-icon"></span> Pagamento Principal: <b>Polygon (POL/MATIC)</b></div>';
 
-  if(isVip){
+  const isFree = isFreeEventActive();
+  if(isFree){
+    el.innerHTML =
+      '<div class="daily-title">&#128081; VIP 100% Liberado &mdash; Partidas Ilimitadas (Evento Especial)</div>' +
+      walletBadge +
+      '<div class="daily-milestone" style="color:#5ee6ff;font-weight:bold;">\u{1F389} Acesso VIP Gratuito Liberado para Todos ate 30/08 as 21h!</div>' +
+      '<div class="daily-milestone">&#10004; Voce tem acesso ilimitado a todas as partidas da Campanha, Sobrevivencia e PvP sem nenhum tempo de espera.</div>';
+  } else if(isVip){
     const daysLeft = Math.max(0, Math.ceil((vipState.expiresAt - Date.now()) / (24*60*60*1000)));
     el.innerHTML =
       '<div class="daily-title">&#128081; VIP Ativo &mdash; Partidas Ilimitadas (' + daysLeft + ' dia(s) restantes)</div>' +
