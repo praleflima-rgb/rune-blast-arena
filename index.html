@@ -400,6 +400,60 @@
 
   /* ---------- Menu principal reestruturado ---------- */
   #overlay .tagline{ font-size:12px;color:#8a7fa0;margin:0 0 6px; }
+  /* ---------- Banner do Evento Especial (Passe Livre) ---------- */
+  .free-event-banner{
+    width:100%;max-width:460px;box-sizing:border-box;
+    background:linear-gradient(135deg, rgba(160,107,255,0.22) 0%, rgba(94,230,255,0.18) 50%, rgba(255,215,107,0.22) 100%);
+    border:2px solid #ffd76b;
+    border-radius:14px;padding:12px 14px;margin-bottom:12px;
+    box-shadow:0 0 20px rgba(255,215,107,0.35), inset 0 0 14px rgba(94,230,255,0.2);
+    text-align:center;position:relative;overflow:hidden;
+    animation: bannerGlow 3s infinite alternate ease-in-out;
+  }
+  @keyframes bannerGlow {
+    0% { border-color:#ffd76b; box-shadow:0 0 16px rgba(255,215,107,0.3), inset 0 0 10px rgba(160,107,255,0.15); }
+    100% { border-color:#5ee6ff; box-shadow:0 0 24px rgba(94,230,255,0.45), inset 0 0 16px rgba(255,215,107,0.25); }
+  }
+  .feb-badge{
+    display:inline-block;padding:2px 10px;border-radius:20px;
+    background:linear-gradient(90deg,#ff7a3d,#ffd76b);
+    color:#0a060f;font-size:10px;font-weight:900;letter-spacing:1px;
+    margin-bottom:4px;text-transform:uppercase;box-shadow:0 2px 8px rgba(0,0,0,0.4);
+  }
+  .feb-main-text{
+    font-size:14px;font-weight:900;color:#fff;
+    text-shadow:0 0 10px rgba(94,230,255,0.8), 0 2px 4px #000;
+    letter-spacing:0.5px;margin-bottom:3px;
+  }
+  .feb-sub-text{
+    font-size:11px;color:#e9dcc4;margin-bottom:6px;line-height:1.3;
+    text-shadow:0 1px 3px rgba(0,0,0,0.8);
+  }
+  .feb-timer-box{
+    display:inline-block;padding:3px 12px;border-radius:8px;
+    background:rgba(0,0,0,0.55);border:1px solid rgba(255,215,107,0.4);
+    color:#ffd76b;font-size:11px;font-weight:bold;
+  }
+  .feb-timer-box span{ color:#5ee6ff; font-family:monospace; font-size:13px; font-weight:bold; }
+
+  /* Card de Premiacao do Evento */
+  .event-prize-card{
+    background:linear-gradient(135deg, rgba(255,215,107,0.15), rgba(160,107,255,0.12));
+    border:1px solid rgba(255,215,107,0.5);
+    border-radius:10px;padding:10px;margin-bottom:10px;text-align:left;
+  }
+  .event-prize-header{
+    display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;
+  }
+  .event-prize-title{ font-size:12px;font-weight:bold;color:var(--gold); }
+  .event-prize-tag{
+    font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;
+    background:rgba(94,230,255,0.2);color:#5ee6ff;border:1px solid rgba(94,230,255,0.4);
+  }
+  .event-prize-body{ font-size:11px;color:#e9dcc4;line-height:1.4; }
+  .event-prize-highlight{ font-size:13px;font-weight:bold;color:#5ee6ff;margin-top:4px; }
+  .event-prize-fee{ font-size:10px;color:#cbb9e0;margin-top:2px; }
+
   .telegram-community-btn{
     display:block;width:100%;max-width:460px;box-sizing:border-box;
     text-align:center;text-decoration:none;
@@ -730,15 +784,15 @@
       <div class="radar-container">
         <div class="radar-pulse"></div>
         <div class="radar-pulse delay-1"></div>
-        <div class="radar-center">&#9876;&#65039;</div>
+        <div id="mmRadarIcon" class="radar-center">&#9876;&#65039;</div>
       </div>
-      <h2 class="mm-title">Aguardando jogadores...</h2>
-      <p class="mm-subtitle">Buscando oponente na Arena PvP Online</p>
+      <h2 id="mmTitle" class="mm-title">Aguardando jogadores...</h2>
+      <p id="mmSubtitle" class="mm-subtitle">Buscando oponentes na Arena</p>
       <div class="mm-timer-bar-wrap">
         <div id="mmTimerBar" class="mm-timer-bar"></div>
       </div>
       <div id="mmTimerText" class="mm-timer-text">30s</div>
-      <p class="mm-bot-notice">&#129154; Se nenhum jogador entrar em 30s, a partida inicia automaticamente com um Bot do sistema.</p>
+      <p id="mmBotNotice" class="mm-bot-notice">&#129154; Se nenhum jogador entrar em 30s, a partida inicia automaticamente com Bots do sistema.</p>
       <button id="cancelMatchmakingBtn" class="mm-cancel-btn">&#10005;&nbsp;Cancelar Busca</button>
     </div>
   </div>
@@ -869,9 +923,18 @@
     <button id="musicMuteBtn" title="Musica do menu">&#128266;</button>
     <button id="logoutBtn" title="Sair da conta" style="display:none;">&#128274;</button>
     <h1>Rune Blast Arena</h1>
-    <p class="tagline">Escolha o modo, escolha seu herÃ³i, e vÃ¡ para a arena.</p>
+    <p class="tagline">Escolha o modo, escolha seu herói, e vá para a arena.</p>
+
+    <!-- Banner do Evento Especial (Passe Livre) -->
+    <div id="freeEventBanner" class="free-event-banner">
+      <div class="feb-badge">✨ EVENTO ESPECIAL ✨</div>
+      <div class="feb-main-text">PASSE LIVRE LIBERADO PARA TODOS!</div>
+      <div class="feb-sub-text">Acesso 100% Grátis aos Modos Sobrevivência &amp; PvP &bull; Disputa pelo Prêmio TOP 1 de R$ 10 em $RBA</div>
+      <div class="feb-timer-box">⏳ Encerra em <span id="febCountdown">--:--:--</span> (Amanhã às 21h BRT)</div>
+    </div>
+
     <a href="https://t.me/+Ew9lZQZlez0xYmY5" target="_blank" rel="noopener noreferrer" class="telegram-community-btn">
-      &#128172; Comunidade Telegram &mdash; novidades, rankings e campeÃµes do dia
+      &#128172; Comunidade Telegram &mdash; novidades, rankings e campeões do dia
     </a>
 
     <div class="daily-panel" id="gameModesPanel"><!-- preenchido via JS: renderGameModesPanel() --></div>
@@ -3087,10 +3150,24 @@ const VIP_KEY = 'rb_vip_status_v2';
 const MATCH_STATE_KEY = 'rb_match_state_v2';
 const VIP_PRICE_BRL = 15.00;
 const VIP_PRICE_POL = 5.00;
-const DAILY_PASS_PRICE_POL = 1.00;
+const DAILY_PASS_PRICE_BRL = 3.00;
+const DAILY_PASS_PRICE_POL = 7.50; // R$ 3,00 equivalente em POL (~7.5 POL)
 const VIP_DURATION_DAYS = 30;
 const VIP_DURATION_MS = VIP_DURATION_DAYS * 24*60*60*1000;
 const FREE_MATCH_COOLDOWN_MS = 6*60*60*1000; // 1 partida gratuita a cada 6 horas
+
+// Evento Especial: Acesso 100% Gratuito (Passe Livre) ate 30/08/2026 as 21:00 BRT
+const FREE_EVENT_END_TIMESTAMP = new Date('2026-08-30T21:00:00-03:00').getTime();
+const SURVIVAL_EVENT_PRIZE_POOL_BRL = 10.00; // R$ 10,00 total no Token RBA para o TOP 1 de Sobrevivencia
+const RBA_LIQUIDITY_FEE_PCT = 8; // 8% retido para liquidez do token
+const SURVIVAL_EVENT_NET_PRIZE_BRL = SURVIVAL_EVENT_PRIZE_POOL_BRL * (1 - RBA_LIQUIDITY_FEE_PCT / 100); // R$ 9,20 liquido
+
+function isFreeEventActive(){
+  return Date.now() < FREE_EVENT_END_TIMESTAMP;
+}
+function getFreeEventTimeRemainingMs(){
+  return Math.max(0, FREE_EVENT_END_TIMESTAMP - Date.now());
+}
 
 /* ============================================================
    POLYGON WALLET / WEB3 MANAGER
@@ -3584,13 +3661,18 @@ function tryStartNewRun(){
 // PvP e Sobrevivencia exigem o Passe Diario ativo - sem passe, mostra esta
 // tela com botao de compra exclusivamente via Carteira Polygon.
 function showBuyPassRequiredScreen(){
+  if(isFreeEventActive()){
+    tryStartNewRun();
+    return;
+  }
   const modeLabel = selectedGameMode === 'pvp' ? 'PvP' : 'Sobrevivencia';
   const overlay = document.getElementById('overlay');
   overlay.classList.remove('hidden');
   overlay.innerHTML =
     '<h1>&#128274; Passe de Batalha Necessario</h1>' +
     '<p>O Passe Diario / Battle Pass e necessario para jogar os modos ranqueados (' + modeLabel + '). Desbloqueia pontuar e competir no ranking ate as 21h de hoje.</p>' +
-    '<button id="buyPassPolyNowBtn" class="polygon-pay-btn" style="width:100%;max-width:340px;margin:10px auto;"><span class="poly-icon"></span> Desbloquear com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL)</button>' +
+    '<p class="daily-milestone" style="max-width:340px;margin:8px auto;text-align:center;">Valor do Passe: <b>' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL</b> (~R$ 3,00)</p>' +
+    '<button id="buyPassPolyNowBtn" class="polygon-pay-btn" style="width:100%;max-width:340px;margin:10px auto;"><span class="poly-icon"></span> Desbloquear com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL / ~R$ 3,00)</button>' +
     '<button id="backToMenuFromLockBtn" style="margin-top:12px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
 
   const polyBtn = document.getElementById('buyPassPolyNowBtn');
@@ -3762,25 +3844,26 @@ document.querySelectorAll('.accordion-header').forEach(function(header){
 function renderGameModesPanel(){
   const el = document.getElementById('gameModesPanel');
   if(!el) return;
+  const isFree = isFreeEventActive();
   const hasPass = hasActiveDailyPass();
   const champions = loadLastChampions();
   const modes = [
     {id:'campaign', icon:'&#127943;', name:'Campanha (PVE)', desc:'10 fases + Malak', cover:'assets/cover_campaign.jpg', demo:true},
-    {id:'survival', icon:'&#9760;&#65039;', name:'Sobrevivencia', desc:'4 herois, so 1 sobrevive', cover:'assets/cover_survival.jpg', needsPass:true, rankMode:'survival'},
-    {id:'pvp', icon:'&#9876;&#65039;', name:'PvP Local', desc:'2 jogadores, 1 aparelho', cover:'assets/cover_pvp.jpg', needsPass:true, rankMode:'pvp'}
+    {id:'survival', icon:'&#9760;&#65039;', name:'Sobrevivencia', desc:'4 herois &bull; Prêmio R$10 em RBA ao TOP 1', cover:'assets/cover_survival.jpg', needsPass:!isFree, rankMode:'survival', freeTag:isFree},
+    {id:'pvp', icon:'&#9876;&#65039;', name:'PvP Online / Local', desc:'2 jogadores &bull; Pareamento em 30s', cover:'assets/cover_pvp.jpg', needsPass:!isFree, rankMode:'pvp', freeTag:isFree}
   ];
   el.innerHTML =
-    '<div class="daily-title">&#127918; Escolha o Modo de Jogo</div>' +
+    '<div class="daily-title">&#127918; Escolha o Modo de Jogo' + (isFree ? ' <span style="color:#5ee6ff;font-size:11px;">(🎉 Evento Grátis Ativo)</span>' : '') + '</div>' +
     modes.map(function(m){
       const sel = m.id === selectedGameMode;
       const locked = m.needsPass && !hasPass;
       const champion = m.rankMode ? champions[m.rankMode] : null;
       const coverStyle = m.cover ? ' style="background-image:linear-gradient(180deg,rgba(10,6,15,.15),rgba(10,6,15,.85)),url(\'' + m.cover + '\');background-size:cover;background-position:center 20%;"' : '';
       return '<div class="mode-card mode-card-big' + (sel?' selected':'') + (m.cover?' has-cover':'') + '" data-mode="' + m.id + '"' + coverStyle + '>' +
-        '<span class="mode-name">' + m.icon + ' ' + m.name + (m.demo ? ' <span class="mode-demo-tag">DEMO</span>' : '') + '<br><small>' + m.desc + (locked ? ' &mdash; \u{1F512} Passe Diario necessario para jogar os modos com ranking' : '') + '</small>' +
+        '<span class="mode-name">' + m.icon + ' ' + m.name + (m.demo ? ' <span class="mode-demo-tag">DEMO</span>' : '') + '<br><small>' + m.desc + (locked ? ' &mdash; \u{1F512} Passe Diario necessario' : (m.freeTag ? ' &mdash; <b style="color:#5ee6ff;">🎉 100% Grátis no Evento</b>' : '')) + '</small>' +
         (champion ? '<br><small class="mode-champion-tag">\u{1F451} Ultimo Campeao: ' + escapeHtml(champion) + '</small>' : '') +
         '</span>' +
-        (sel ? '<span class="mode-badge sel">SELECIONADO</span>' : (locked ? '<span class="mode-badge">\u{1F512} PASSE</span>' : '')) +
+        (sel ? '<span class="mode-badge sel">SELECIONADO</span>' : (m.freeTag ? '<span class="mode-badge" style="background:rgba(94,230,255,.18);color:#5ee6ff;border-color:rgba(94,230,255,.45);">🎉 GRÁTIS</span>' : (locked ? '<span class="mode-badge">\u{1F512} PASSE</span>' : ''))) +
       '</div>';
     }).join('');
   el.querySelectorAll('.mode-card').forEach(function(card){
@@ -4097,6 +4180,7 @@ function saveDailyPassState(cycleDate){
   syncProfileToSupabase();
 }
 function hasActiveDailyPass(){
+  if(isFreeEventActive()) return true; // 100% GRATUITO para todos durante o evento especial
   return loadDailyPassState() === getCycleDateKey();
 }
 function buyDailyPass(){
@@ -4285,6 +4369,25 @@ function renderRankBoardHtml(mode){
   const myEntry = sorted.find(function(p){ return p.name===myName; });
   const myRank = myEntry ? sorted.indexOf(myEntry)+1 : null;
   const cycleEndsAt = getCycleEndTimestamp(data.cycleDate);
+  const isFree = isFreeEventActive();
+
+  const countdownText = isFree
+    ? '\u23F3 Evento Especial Encerra em ' + formatCountdown(getFreeEventTimeRemainingMs()) + ' (30/08 as 21h)'
+    : '\u23F1\uFE0F Ciclo Diario Encerra em ' + formatCountdown(cycleEndsAt - Date.now()) + ' (21h)';
+
+  const prizeCardHtml = (mode === 'survival')
+    ? '<div class="event-prize-card">' +
+        '<div class="event-prize-header">' +
+          '<span class="event-prize-title">\u{1F3C6} Premio Exclusivo TOP 1 (Token RBA)</span>' +
+          '<span class="event-prize-tag">' + (isFree ? 'Evento Gratis' : 'Ranking Especial') + '</span>' +
+        '</div>' +
+        '<div class="event-prize-body">' +
+          'Pool Total da Premiacao: <b>R$ 10,00</b> no Token <b>$RBA</b><br>' +
+          '<div class="event-prize-highlight">\u{1F4B0} TOP 1 Recebe: R$ 9,20 liq. em $RBA</div>' +
+          '<div class="event-prize-fee">\u{1F4A7} 8% (R$ 0,80) retido para liquidez do token &bull; Encerra 30/08 as 21h</div>' +
+        '</div>' +
+      '</div>'
+    : '';
 
   const rowsHtml = sorted.slice(0, 10).map(function(p, i){
     const medal = i===0?'\u{1F947} ':(i===1?'\u{1F948} ':(i===2?'\u{1F949} ':''));
@@ -4302,7 +4405,8 @@ function renderRankBoardHtml(mode){
 
   return '<div class="rank-board">' +
     '<div class="rank-board-title">' + modeInfo.icon + ' Ranking ' + modeInfo.name + '</div>' +
-    '<div class="rank-countdown">\u23F1\uFE0F Encerra em ' + formatCountdown(cycleEndsAt - Date.now()) + ' (21h)</div>' +
+    prizeCardHtml +
+    '<div class="rank-countdown">' + countdownText + '</div>' +
     '<div class="lb-list">' + (rowsHtml || '<div class="daily-milestone">Nenhuma pontuacao ainda hoje.</div>') + myRowExtra + '</div>' +
     (myEntry ? '<div class="rank-my-stats"><span>Sua posicao: #' + (myRank||'-') + '</span><span>' + myEntry.points + ' pts</span></div>' : '') +
   '</div>';
@@ -4312,6 +4416,7 @@ function renderDailyRankPanel(){
   const el = document.getElementById('dailyRankPanel');
   if(!el) return;
 
+  const isFree = isFreeEventActive();
   const hasPass = hasActiveDailyPass();
   const titles = loadDailyTitles();
 
@@ -4324,15 +4429,17 @@ function renderDailyRankPanel(){
       }).join('') + '</div>'
     : '';
 
-  const passRowHtml = hasPass
-    ? '<div class="rank-pass-row"><span class="rank-pass-status">\u2705 Passe ativo hoje (vale PvP e Sobrevivencia)</span></div>'
-    : '<div class="rank-pass-row" style="flex-direction:column;align-items:stretch;gap:6px;">' +
-        '<span class="daily-milestone">&#128274; Desbloqueie o Passe para pontuar nos Rankings Diarios:</span>' +
-        '<button id="buyRankPassPolyBtn" class="polygon-pay-btn" style="width:100%;"><span class="poly-icon"></span> Desbloquear Passe com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL)</button>' +
-      '</div>';
+  const passRowHtml = isFree
+    ? '<div class="rank-pass-row"><span class="rank-pass-status" style="color:#5ee6ff;font-weight:bold;">\u{1F389} PASSE LIVRE ATIVO &mdash; Evento Especial 100% Gratuito (Vale Ranking e Premios)!</span></div>'
+    : (hasPass
+        ? '<div class="rank-pass-row"><span class="rank-pass-status">\u2705 Passe ativo hoje (vale PvP e Sobrevivencia)</span></div>'
+        : '<div class="rank-pass-row" style="flex-direction:column;align-items:stretch;gap:6px;">' +
+            '<span class="daily-milestone">&#128274; Desbloqueie o Passe para pontuar nos Rankings Diarios:</span>' +
+            '<button id="buyRankPassPolyBtn" class="polygon-pay-btn" style="width:100%;"><span class="poly-icon"></span> Desbloquear Passe com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL / ~R$ 3,00)</button>' +
+          '</div>');
 
   el.innerHTML =
-    '<div class="daily-title">\u{1F3C6} Rankings Diarios</div>' +
+    '<div class="daily-title">\u{1F3C6} Rankings Diarios' + (isFree ? ' &bull; <span style="color:#5ee6ff;font-size:11px;">Passe Livre Liberado</span>' : '') + '</div>' +
     myTitlesHtml +
     passRowHtml +
     renderRankBoardHtml('survival') +
@@ -4352,14 +4459,27 @@ function renderDailyRankPanel(){
   }
 }
 
-// Atualiza os cronometros dos 2 boards a cada segundo enquanto o menu
+function updateFreeEventBannerCountdown(){
+  const el = document.getElementById('febCountdown');
+  if(!el) return;
+  if(isFreeEventActive()){
+    el.textContent = formatCountdown(getFreeEventTimeRemainingMs());
+  } else {
+    const banner = document.getElementById('freeEventBanner');
+    if(banner) banner.style.display = 'none';
+  }
+}
+
+// Atualiza os cronometros dos 2 boards e o banner do evento a cada segundo enquanto o menu
 // estiver aberto (re-renderiza o painel inteiro - e leve o suficiente).
 setInterval(function(){
+  updateFreeEventBannerCountdown();
   const overlay = document.getElementById('overlay');
   if(!overlay || overlay.classList.contains('hidden')) return;
   const panelVisible = document.getElementById('dailyRankPanel');
   if(panelVisible) renderDailyRankPanel();
 }, 1000);
+updateFreeEventBannerCountdown();
 
 function spawnSkeletonNear(m){
   const col = Math.floor(m.x), row = Math.floor(m.y);
@@ -5628,13 +5748,16 @@ function renderEquipmentPanel(){
   const el = document.getElementById('equipmentPanel');
   if(!el) return;
 
+  const isFree = isFreeEventActive();
   const hasPass = hasActiveDailyPass();
   const passHtml =
     '<div class="equip-item-row" style="flex-wrap:wrap;gap:8px;">' +
-      '<span class="equip-item-info" style="flex:1 1 100%;"><b>Passe Diario / Battle Pass</b><br><small>Libera pontuar no Ranking Diario (PvP e Sobrevivencia) ate as 21h</small></span>' +
-      (hasPass
-        ? '<span class="rank-pass-status">\u2705 Ativo hoje</span>'
-        : '<button class="polygon-pay-btn buy-pass-poly-btn" style="flex:1;min-width:200px;"><span class="poly-icon"></span> Comprar com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL)</button>') +
+      '<span class="equip-item-info" style="flex:1 1 100%;"><b>Passe Diario / Battle Pass</b><br><small>Libera pontuar no Ranking Diario (PvP e Sobrevivencia) &bull; Valor: <b>' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL</b> (~R$ 3,00)</small></span>' +
+      (isFree
+        ? '<span class="rank-pass-status" style="color:#5ee6ff;font-weight:bold;">\u{1F389} Evento Gratis Ativo (Passe Livre ate 30/08 as 21h)</span>'
+        : (hasPass
+            ? '<span class="rank-pass-status">\u2705 Ativo hoje</span>'
+            : '<button class="polygon-pay-btn buy-pass-poly-btn" style="flex:1;min-width:200px;"><span class="poly-icon"></span> Comprar com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL / ~R$ 3,00)</button>')) +
     '</div>';
 
   const byChar = {};
@@ -7068,7 +7191,7 @@ function clearMatchmakingTimers(){
 }
 
 function updateMatchmakingCountdownDisplay(){
-  if(!pvpWaitingForOpponent) return;
+  if(!pvpWaitingForOpponent && !survivalWaitingForPlayers) return;
   const remaining = Math.max(0, matchmakingDeadline - performance.now());
   const remainingSec = Math.ceil(remaining/1000);
   const pct = Math.max(0, Math.min(100, (remaining / MATCHMAKING_TIMEOUT_MS) * 100));
@@ -7117,6 +7240,14 @@ function startPvpMatchOnline(){
 
   const mmOverlay = document.getElementById('matchmakingOverlay');
   if(mmOverlay) mmOverlay.classList.remove('hidden-mode');
+  const mmRadarIcon = document.getElementById('mmRadarIcon');
+  if(mmRadarIcon) mmRadarIcon.innerHTML = '&#9876;&#65039;';
+  const mmTitle = document.getElementById('mmTitle');
+  if(mmTitle) mmTitle.textContent = 'Aguardando jogadores...';
+  const mmSubtitle = document.getElementById('mmSubtitle');
+  if(mmSubtitle) mmSubtitle.textContent = 'Buscando oponente na Arena PvP Online';
+  const mmBotNotice = document.getElementById('mmBotNotice');
+  if(mmBotNotice) mmBotNotice.innerHTML = '&#129154; Se nenhum jogador entrar em 30s, a partida inicia automaticamente com um Bot do sistema.';
   const mmBar = document.getElementById('mmTimerBar');
   if(mmBar) mmBar.style.width = '100%';
   const mmTxt = document.getElementById('mmTimerText');
@@ -7750,18 +7881,77 @@ let survivalCloseState = null;
 let survivalMatchOver = false;
 let survivalDeathOrder = []; // herois na ordem em que morreram (1o a entrar = 1o a morrer)
 let survivalIsRanked = false; // true = partida com passe ativo (itens desligados, ganha pontos de ranking)
+let survivalWaitingForPlayers = false;
 
 function startSurvivalMatch(){
   gameMode = 'survival';
+  survivalMatchOver = false;
+  survivalWaitingForPlayers = false;
+
+  // partida ranqueada = durante o evento livre e 100% ranqueado para todos, ou com passe ativo
+  survivalIsRanked = hasActiveDailyPass();
+
+  runes = []; flames = []; particles = []; powerups = []; coinPickups = []; webs = [];
+  door = null; boss = null; monsters = [];
+
+  // Passa pela busca de 30s com radar animado (identico ao PvP)
+  startSurvivalMatchOnline();
+}
+
+function startSurvivalMatchOnline(){
+  survivalWaitingForPlayers = true;
+  gameState = 'playing';
+  hudEls.phaseTag.textContent = 'Sobrevivencia (4 Herois)';
+  hudEls.monsterTag.textContent = '\u{1F50D} Aguardando jogadores... 30s';
+
+  const mmOverlay = document.getElementById('matchmakingOverlay');
+  if(mmOverlay) mmOverlay.classList.remove('hidden-mode');
+  const mmRadarIcon = document.getElementById('mmRadarIcon');
+  if(mmRadarIcon) mmRadarIcon.innerHTML = '&#9760;&#65039;';
+  const mmTitle = document.getElementById('mmTitle');
+  if(mmTitle) mmTitle.textContent = 'Aguardando jogadores...';
+  const mmSubtitle = document.getElementById('mmSubtitle');
+  if(mmSubtitle) mmSubtitle.textContent = 'Buscando participantes no Modo Sobrevivencia';
+  const mmBotNotice = document.getElementById('mmBotNotice');
+  if(mmBotNotice) mmBotNotice.innerHTML = '&#129154; Se nenhum jogador entrar em 30s, a partida inicia automaticamente com 3 Bots taticos.';
+  const mmBar = document.getElementById('mmTimerBar');
+  if(mmBar) mmBar.style.width = '100%';
+  const mmTxt = document.getElementById('mmTimerText');
+  if(mmTxt) mmTxt.textContent = '30s';
+
+  const cancelBtn = document.getElementById('cancelMatchmakingBtn');
+  if(cancelBtn){
+    cancelBtn.onclick = function(){
+      clearMatchmakingTimers();
+      survivalWaitingForPlayers = false;
+      if(mmOverlay) mmOverlay.classList.add('hidden-mode');
+      stopMatchmakingMusicNow();
+      location.reload();
+    };
+  }
+
+  playMatchmakingMusic();
+  matchmakingDeadline = performance.now() + MATCHMAKING_TIMEOUT_MS;
+  clearMatchmakingTimers();
+  matchmakingCountdownIntervalId = setInterval(updateMatchmakingCountdownDisplay, 250);
+  matchmakingTimeoutId = setTimeout(handleSurvivalMatchmakingTimeout, MATCHMAKING_TIMEOUT_MS);
+}
+
+function handleSurvivalMatchmakingTimeout(){
+  if(!survivalWaitingForPlayers) return;
+  clearMatchmakingTimers();
+  survivalWaitingForPlayers = false;
+  const mmOverlay = document.getElementById('matchmakingOverlay');
+  if(mmOverlay) mmOverlay.classList.add('hidden-mode');
+  fadeOutMatchmakingMusic(500);
+  startSurvivalMatchWithBots();
+}
+
+function startSurvivalMatchWithBots(){
   const spawns = [
     {row:1,col:1}, {row:1,col:COLS-2}, {row:ROWS-2,col:1}, {row:ROWS-2,col:COLS-2}
   ];
   generateArenaGrid(0.28, spawns);
-
-  // partida ranqueada = jogador tem passe ativo hoje na categoria selecionada.
-  // Regra do sistema de equipamentos: itens NAO valem em partidas ranqueadas
-  // (o Modo Ranqueado precisa continuar 100% habilidade, sem vantagem paga).
-  survivalIsRanked = hasActiveDailyPass();
 
   survivalHeroes = spawns.map(function(sp, i){
     const h = makeArenaHero(sp.col, sp.row, selectedCharacterIndex+i);
