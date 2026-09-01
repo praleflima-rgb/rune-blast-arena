@@ -454,6 +454,71 @@
   .event-prize-highlight{ font-size:13px;font-weight:bold;color:#5ee6ff;margin-top:4px; }
   .event-prize-fee{ font-size:10px;color:#cbb9e0;margin-top:2px; }
 
+  /* Card de Vencedor do Ciclo Anterior (Exibição 24h) */
+  .previous-winner-card{
+    background:linear-gradient(135deg, rgba(255,215,107,0.18) 0%, rgba(160,107,255,0.18) 50%, rgba(94,230,255,0.12) 100%);
+    border:2px solid #ffd76b;
+    border-radius:12px;
+    padding:10px 12px;
+    margin-bottom:12px;
+    text-align:left;
+    box-shadow:0 0 16px rgba(255,215,107,0.25), inset 0 0 10px rgba(255,215,107,0.1);
+    position:relative;
+    overflow:hidden;
+  }
+  .previous-winner-header{
+    display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;
+    border-bottom:1px solid rgba(255,215,107,0.25);
+    padding-bottom:5px;
+  }
+  .previous-winner-title{
+    font-size:12px;font-weight:900;color:#ffd76b;
+    display:flex;align-items:center;gap:5px;
+    text-shadow:0 0 8px rgba(255,215,107,0.5);
+  }
+  .previous-winner-badge{
+    font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;
+    background:rgba(255,215,107,0.2);color:#ffd76b;border:1px solid rgba(255,215,107,0.4);
+    text-transform:uppercase;letter-spacing:0.5px;
+  }
+  .previous-winner-grid{
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .winner-mode-row{
+    display:flex;justify-content:space-between;align-items:center;
+    background:rgba(0,0,0,0.35);
+    padding:6px 10px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.08);
+  }
+  .winner-mode-info{
+    display:flex;flex-direction:column;gap:1px;
+  }
+  .winner-mode-label{
+    font-size:10px;color:#cbb9e0;font-weight:bold;
+  }
+  .winner-user-name{
+    font-size:13px;font-weight:900;color:#5ee6ff;
+    display:flex;align-items:center;gap:4px;
+  }
+  .winner-user-score{
+    text-align:right;
+    display:flex;flex-direction:column;align-items:flex-end;gap:1px;
+  }
+  .winner-points{
+    font-size:11px;font-weight:bold;color:#ffd76b;
+  }
+  .winner-prize-tag{
+    font-size:10px;font-weight:bold;color:#6bf995;
+    background:rgba(107,249,149,0.12);
+    padding:1px 5px;border-radius:4px;
+    border:1px solid rgba(107,249,149,0.3);
+  }
+  .previous-winner-footer{
+    margin-top:6px;font-size:10px;color:#a89bc2;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+
   .telegram-community-btn{
     display:block;width:100%;max-width:460px;box-sizing:border-box;
     text-align:center;text-decoration:none;
@@ -1914,11 +1979,23 @@ function tileAt(col,row){
 function isSolidTile(col,row){ return tileAt(col,row) !== TILE_EMPTY; }
 
 // heroId identifica quem esta pedindo a checagem de colisao ('player' por
-// padrao, mantendo o comportamento antigo identico). Em PvP/Sobrevivencia,
-// cada heroi passa seu proprio id ('p1','p2','bot1'...) para que a bomba dele
-// mesmo nao o bloqueie enquanto ele nao sair da casa, mas bloqueie todo mundo.
-function boxBlocked(x,y,half,heroId){
-  const pts = [[x-half,y-half],[x+half,y-half],[x-half,y+half],[x+half,y+half]];
+// padrao, mantendo o comportamento antigo identico). Se dirX/dirY forem passados,
+// avalia apenas a borda frontal na direcao do deslocamento - assim, o heroi pode
+// mover-se livremente no sentido oposto para afastar-se de bombas ou paredes
+// em que ja estivesse sobreposto, sem jamais ficar travado.
+function boxBlocked(x,y,half,heroId,dirX,dirY){
+  let pts;
+  if(dirX > 0){
+    pts = [[x+half, y-half+0.02], [x+half, y+half-0.02]];
+  } else if(dirX < 0){
+    pts = [[x-half, y-half+0.02], [x-half, y+half-0.02]];
+  } else if(dirY > 0){
+    pts = [[x-half+0.02, y+half], [x+half-0.02, y+half]];
+  } else if(dirY < 0){
+    pts = [[x-half+0.02, y-half], [x+half-0.02, y-half]];
+  } else {
+    pts = [[x-half,y-half],[x+half,y-half],[x-half,y+half],[x+half,y+half]];
+  }
   for(const pt of pts){
     const col = Math.floor(pt[0]), row = Math.floor(pt[1]);
     if(isSolidTile(col,row)) return true;
@@ -1932,9 +2009,9 @@ function isRuneAt(col,row){
 }
 
 // Uma bomba bloqueia normalmente quem nunca esteve em cima dela. MAS: se um
-// heroi (o dono OU qualquer outro que por acaso ja estava naquela casa quando
-// a bomba surgiu) ainda nao saiu de la, ela fica passavel PRA ELE - assim
-// ninguem fica preso quando uma bomba aparece debaixo dele. So vira solida
+// heroi (o dono OU qualquer outro que por acaso ja estava naquela casa ou encostando
+// quando a bomba surgiu) ainda nao saiu de la, ela fica passavel PRA ELE - assim
+// ninguem fica preso quando uma bomba aparece debaixo/ao lado dele. So vira solida
 // para aquele heroi especifico depois que ele sai de vez da casa (efeito
 // Bomberman classico: pode sair, mas nao pode voltar).
 function isRuneBlockingHero(col,row,heroId){
@@ -1942,7 +2019,7 @@ function isRuneBlockingHero(col,row,heroId){
     if(r.exploded || r.col!==col || r.row!==row) return false;
     if(r.clearedFor){
       if(Object.prototype.hasOwnProperty.call(r.clearedFor, heroId)){
-        return r.clearedFor[heroId] === true; // true = ja saiu -> bloqueia; false = ainda em cima -> livre
+        return r.clearedFor[heroId] === true; // true = ja saiu -> bloqueia; false = ainda em cima/liberado -> livre
       }
       return true; // nunca esteve nessa casa -> obstaculo solido normal
     }
@@ -4172,6 +4249,18 @@ function getCycleDateKey(date){
   const pad = function(n){ return n<10 ? '0'+n : ''+n; };
   return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
 }
+
+// "Dia do ciclo anterior": ciclo de 24h imediatamente anterior ao ciclo ativo,
+// cujo ganhador fica em exibicao durante todas as 24h do ciclo seguinte.
+function getPreviousCycleDateKey(date){
+  const curCycleKey = getCycleDateKey(date);
+  const parts = curCycleKey.split('-').map(Number);
+  const d = new Date(parts[0], parts[1]-1, parts[2]);
+  d.setDate(d.getDate() - 1);
+  const pad = function(n){ return n<10 ? '0'+n : ''+n; };
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+
 // timestamp exato (ms) em que o ciclo identificado por cycleDateKey fecha (21h daquele dia)
 function getCycleEndTimestamp(cycleDateKey){
   const parts = cycleDateKey.split('-').map(Number);
@@ -4298,6 +4387,7 @@ function saveDailyRank(mode, data){
 // tinha o proprio ranking isolado, e um jogador nunca via o outro.
 // ============================================================
 const sharedDailyRankCache = { survival: null, pvp: null };
+const previousDailyWinnersCache = { survival: null, pvp: null, cycleDate: null, lastFetchedCycle: null };
 
 function fetchDailyRankFromSupabase(mode){
   if(!supabaseConfigured) return Promise.resolve(null);
@@ -4317,10 +4407,40 @@ function fetchDailyRankFromSupabase(mode){
     });
 }
 
-// Busca os dois modos e redesenha o painel quando os dados chegarem.
+function fetchPreviousCycleWinnersFromSupabase(){
+  if(!supabaseConfigured) return Promise.resolve(null);
+  const prevCycle = getPreviousCycleDateKey();
+  return supabaseClient
+    .from('daily_rank')
+    .select('username, points, matches, best_placement, mode')
+    .eq('cycle_date', prevCycle)
+    .order('points', { ascending: false })
+    .then(function(res){
+      if(res.error){ console.warn('[Vencedor Anterior] falha ao buscar:', res.error.message); return null; }
+      const rows = res.data || [];
+      const survivalWinner = rows.find(function(r){ return r.mode === 'survival'; }) || null;
+      const pvpWinner = rows.find(function(r){ return r.mode === 'pvp'; }) || null;
+      previousDailyWinnersCache.survival = survivalWinner;
+      previousDailyWinnersCache.pvp = pvpWinner;
+      previousDailyWinnersCache.cycleDate = prevCycle;
+      previousDailyWinnersCache.lastFetchedCycle = getCycleDateKey();
+
+      if(survivalWinner) saveLastChampion('survival', survivalWinner.username);
+      if(pvpWinner) saveLastChampion('pvp', pvpWinner.username);
+
+      renderGameModesPanel();
+      return previousDailyWinnersCache;
+    });
+}
+
+// Busca os dois modos e o vencedor do ciclo anterior e redesenha o painel
 function refreshDailyRankPanels(){
   if(!supabaseConfigured) return;
-  Promise.all([fetchDailyRankFromSupabase('survival'), fetchDailyRankFromSupabase('pvp')])
+  Promise.all([
+    fetchDailyRankFromSupabase('survival'),
+    fetchDailyRankFromSupabase('pvp'),
+    fetchPreviousCycleWinnersFromSupabase()
+  ])
     .then(function(){ renderDailyRankPanel(); })
     .catch(function(err){ console.warn('[Ranking Diario] erro ao atualizar:', err.message); });
 }
@@ -4369,7 +4489,10 @@ function subscribeToLiveRank(){
   const msAteCiclo = getCycleEndTimestamp(cycleKey) - Date.now() + 2000;
   if(msAteCiclo > 0){
     setTimeout(function(){
-      if(liveRankCycleKey === cycleKey) subscribeToLiveRank();
+      if(liveRankCycleKey === cycleKey){
+        refreshDailyRankPanels();
+        subscribeToLiveRank();
+      }
     }, msAteCiclo);
   }
 }
@@ -4447,6 +4570,9 @@ function renderRankBoardHtml(mode){
     ? '\u23F3 Evento Especial Encerra em ' + formatCountdown(getFreeEventTimeRemainingMs()) + ' (30/08 as 21h)'
     : '\u23F1\uFE0F Ciclo Diario Encerra em ' + formatCountdown(cycleEndsAt - Date.now()) + ' (21h)';
 
+  const cycleParts = (data.cycleDate || '').split('-');
+  const cycleDateDisplay = cycleParts.length === 3 ? (cycleParts[2] + '/' + cycleParts[1]) : 'hoje';
+
   const prizeCardHtml = (mode === 'survival')
     ? '<div class="event-prize-card">' +
         '<div class="event-prize-header">' +
@@ -4456,7 +4582,7 @@ function renderRankBoardHtml(mode){
         '<div class="event-prize-body">' +
           'Pool Total da Premiacao: <b>R$ 10,00</b> no Token <b>$RBA</b><br>' +
           '<div class="event-prize-highlight">\u{1F4B0} TOP 1 Recebe: R$ 9,20 liq. em $RBA</div>' +
-          '<div class="event-prize-fee">\u{1F4A7} 8% (R$ 0,80) retido para liquidez do token &bull; Encerra 30/08 as 21h</div>' +
+          '<div class="event-prize-fee">\u{1F4A7} 8% (R$ 0,80) retido para liquidez do token &bull; Encerra às 21h (' + cycleDateDisplay + ')</div>' +
         '</div>' +
       '</div>'
     : '';
@@ -4492,6 +4618,63 @@ function renderDailyRankPanel(){
   const hasPass = hasActiveDailyPass();
   const titles = loadDailyTitles();
 
+  const prevCycleKey = getPreviousCycleDateKey();
+  const prevCycleDisplay = (function(key){
+    if(!key) return '';
+    const p = key.split('-');
+    return p[2] + '/' + p[1];
+  })(prevCycleKey);
+
+  const prevSurv = previousDailyWinnersCache.survival;
+  const prevPvp = previousDailyWinnersCache.pvp;
+
+  let previousWinnerHtml = '';
+  if(prevSurv || prevPvp){
+    let survHtml = '';
+    if(prevSurv){
+      survHtml =
+        '<div class="winner-mode-row">' +
+          '<div class="winner-mode-info">' +
+            '<span class="winner-mode-label">\u2620\uFE0F Sobrevivência (Prêmio TOP 1)</span>' +
+            '<span class="winner-user-name">\u{1F947} ' + escapeHtml(prevSurv.username) + '</span>' +
+          '</div>' +
+          '<div class="winner-user-score">' +
+            '<span class="winner-prize-tag">\u{1F4B0} R$ 9,20 líq. em $RBA</span>' +
+            '<span class="winner-points">' + prevSurv.points + ' pts (' + prevSurv.matches + ' part.)</span>' +
+          '</div>' +
+        '</div>';
+    }
+    let pvpHtml = '';
+    if(prevPvp){
+      pvpHtml =
+        '<div class="winner-mode-row">' +
+          '<div class="winner-mode-info">' +
+            '<span class="winner-mode-label">\u2694\uFE0F Arena PvP</span>' +
+            '<span class="winner-user-name">\u{1F947} ' + escapeHtml(prevPvp.username) + '</span>' +
+          '</div>' +
+          '<div class="winner-user-score">' +
+            '<span class="winner-points">' + prevPvp.points + ' pts (' + prevPvp.matches + ' part.)</span>' +
+          '</div>' +
+        '</div>';
+    }
+
+    previousWinnerHtml =
+      '<div class="previous-winner-card">' +
+        '<div class="previous-winner-header">' +
+          '<span class="previous-winner-title">\u{1F451} Vencedor do Ciclo Anterior (' + prevCycleDisplay + ')</span>' +
+          '<span class="previous-winner-badge">Exibição 24h</span>' +
+        '</div>' +
+        '<div class="previous-winner-grid">' +
+          survHtml +
+          pvpHtml +
+        '</div>' +
+        '<div class="previous-winner-footer">' +
+          '<span>\u{1F3C6} Encerrado às 21h de ' + prevCycleDisplay + '</span>' +
+          '<span>\u23F3 Próximo campeão hoje às 21h</span>' +
+        '</div>' +
+      '</div>';
+  }
+
   const myTitlesHtml = titles.length
     ? '<div class="rank-titles">' + titles.slice(-6).map(function(t){
         const icon = t.badge==='campeao' ? '\u{1F3C6}' : (t.badge==='vice' ? '\u{1F948}' : '\u{1F949}');
@@ -4512,6 +4695,7 @@ function renderDailyRankPanel(){
 
   el.innerHTML =
     '<div class="daily-title">\u{1F3C6} Rankings Diarios' + (isFree ? ' &bull; <span style="color:#5ee6ff;font-size:11px;">Passe Livre Liberado</span>' : '') + '</div>' +
+    previousWinnerHtml +
     myTitlesHtml +
     passRowHtml +
     renderRankBoardHtml('survival') +
@@ -4544,8 +4728,15 @@ function updateFreeEventBannerCountdown(){
 
 // Atualiza os cronometros dos 2 boards e o banner do evento a cada segundo enquanto o menu
 // estiver aberto (re-renderiza o painel inteiro - e leve o suficiente).
+let lastObservedCycleKey = getCycleDateKey();
 setInterval(function(){
   updateFreeEventBannerCountdown();
+  const currentKey = getCycleDateKey();
+  if(currentKey !== lastObservedCycleKey){
+    lastObservedCycleKey = currentKey;
+    refreshDailyRankPanels();
+    subscribeToLiveRank();
+  }
   const overlay = document.getElementById('overlay');
   if(!overlay || overlay.classList.contains('hidden')) return;
   const panelVisible = document.getElementById('dailyRankPanel');
@@ -5520,7 +5711,7 @@ function nearestTileCenter(v){
 function tryMoveX(dx, effSpeed, dt){
   if(dx === 0) return;
   const nx = player.x + dx*effSpeed*dt;
-  if(!boxBlocked(nx, player.y, player.half)){
+  if(!boxBlocked(nx, player.y, player.half, 'player', dx, 0)){
     player.x = nx;
     return;
   }
@@ -5529,9 +5720,9 @@ function tryMoveX(dx, effSpeed, dt){
   if(offsetY > 0.001 && offsetY <= CORNER_SLIDE_THRESHOLD){
     const step = Math.min(offsetY, effSpeed*dt*8);
     const correctedY = player.y + Math.sign(centerY - player.y)*step;
-    if(!boxBlocked(player.x, correctedY, player.half)){
+    if(!boxBlocked(player.x, correctedY, player.half, 'player', 0, centerY > player.y ? 1 : -1)){
       player.y = correctedY;
-      if(!boxBlocked(nx, player.y, player.half)) player.x = nx;
+      if(!boxBlocked(nx, player.y, player.half, 'player', dx, 0)) player.x = nx;
     }
   }
 }
@@ -5541,7 +5732,7 @@ function tryMoveX(dx, effSpeed, dt){
 function tryMoveY(dy, effSpeed, dt){
   if(dy === 0) return;
   const ny = player.y + dy*effSpeed*dt;
-  if(!boxBlocked(player.x, ny, player.half)){
+  if(!boxBlocked(player.x, ny, player.half, 'player', 0, dy)){
     player.y = ny;
     return;
   }
@@ -5550,9 +5741,9 @@ function tryMoveY(dy, effSpeed, dt){
   if(offsetX > 0.001 && offsetX <= CORNER_SLIDE_THRESHOLD){
     const step = Math.min(offsetX, effSpeed*dt*8);
     const correctedX = player.x + Math.sign(centerX - player.x)*step;
-    if(!boxBlocked(correctedX, player.y, player.half)){
+    if(!boxBlocked(correctedX, player.y, player.half, 'player', centerX > player.x ? 1 : -1, 0)){
       player.x = correctedX;
-      if(!boxBlocked(player.x, ny, player.half)) player.y = ny;
+      if(!boxBlocked(player.x, ny, player.half, 'player', 0, dy)) player.y = ny;
     }
   }
 }
@@ -5561,9 +5752,21 @@ function tryMoveY(dy, effSpeed, dt){
 // - hero.ghostBlocks: atravessa TILE_BLOCK (blocos quebraveis) livremente
 // - hero.ghostBombs: atravessa bombas livremente (mesmo as que normalmente bloqueariam)
 // Paredes/pilares (TILE_WALL) NUNCA sao atravessaveis, nem com item nenhum.
-function boxBlockedForHero(x, y, half, hero){
+// Se dirX/dirY forem passados, avalia apenas a borda frontal na direcao do movimento.
+function boxBlockedForHero(x, y, half, hero, dirX, dirY){
   const heroId = (hero && hero.heroId) || 'player';
-  const pts = [[x-half,y-half],[x+half,y-half],[x-half,y+half],[x+half,y+half]];
+  let pts;
+  if(dirX > 0){
+    pts = [[x+half, y-half+0.02], [x+half, y+half-0.02]];
+  } else if(dirX < 0){
+    pts = [[x-half, y-half+0.02], [x-half, y+half-0.02]];
+  } else if(dirY > 0){
+    pts = [[x-half+0.02, y+half], [x+half-0.02, y+half]];
+  } else if(dirY < 0){
+    pts = [[x-half+0.02, y-half], [x+half-0.02, y-half]];
+  } else {
+    pts = [[x-half,y-half],[x+half,y-half],[x-half,y+half],[x+half,y+half]];
+  }
   for(const pt of pts){
     const col = Math.floor(pt[0]), row = Math.floor(pt[1]);
     const tile = tileAt(col,row);
@@ -5594,7 +5797,7 @@ function tryKickRune(col, row, dirX, dirY){
 function heroTryMoveX(hero, heroId, dx, effSpeed, dt){
   if(dx === 0) return;
   const nx = hero.x + dx*effSpeed*dt;
-  if(!boxBlockedForHero(nx, hero.y, hero.half, hero)){ hero.x = nx; return; }
+  if(!boxBlockedForHero(nx, hero.y, hero.half, hero, dx, 0)){ hero.x = nx; return; }
 
   if(hero.hasBombKick){
     const col = Math.floor(hero.x + (dx>0 ? hero.half+0.02 : -hero.half-0.02));
@@ -5609,16 +5812,16 @@ function heroTryMoveX(hero, heroId, dx, effSpeed, dt){
   if(offsetY > 0.001 && offsetY <= CORNER_SLIDE_THRESHOLD){
     const step = Math.min(offsetY, effSpeed*dt*8);
     const correctedY = hero.y + Math.sign(centerY - hero.y)*step;
-    if(!boxBlockedForHero(hero.x, correctedY, hero.half, hero)){
+    if(!boxBlockedForHero(hero.x, correctedY, hero.half, hero, 0, centerY > hero.y ? 1 : -1)){
       hero.y = correctedY;
-      if(!boxBlockedForHero(nx, hero.y, hero.half, hero)) hero.x = nx;
+      if(!boxBlockedForHero(nx, hero.y, hero.half, hero, dx, 0)) hero.x = nx;
     }
   }
 }
 function heroTryMoveY(hero, heroId, dy, effSpeed, dt){
   if(dy === 0) return;
   const ny = hero.y + dy*effSpeed*dt;
-  if(!boxBlockedForHero(hero.x, ny, hero.half, hero)){ hero.y = ny; return; }
+  if(!boxBlockedForHero(hero.x, ny, hero.half, hero, 0, dy)){ hero.y = ny; return; }
 
   if(hero.hasBombKick){
     const col = Math.floor(hero.x);
@@ -5633,9 +5836,9 @@ function heroTryMoveY(hero, heroId, dy, effSpeed, dt){
   if(offsetX > 0.001 && offsetX <= CORNER_SLIDE_THRESHOLD){
     const step = Math.min(offsetX, effSpeed*dt*8);
     const correctedX = hero.x + Math.sign(centerX - hero.x)*step;
-    if(!boxBlockedForHero(correctedX, hero.y, hero.half, hero)){
+    if(!boxBlockedForHero(correctedX, hero.y, hero.half, hero, centerX > hero.x ? 1 : -1, 0)){
       hero.x = correctedX;
-      if(!boxBlockedForHero(hero.x, ny, hero.half, hero)) hero.y = ny;
+      if(!boxBlockedForHero(hero.x, ny, hero.half, hero, 0, dy)) hero.y = ny;
     }
   }
 }
@@ -5660,23 +5863,32 @@ function updateSlidingRunes(dt){
         r.slideProgress = 0;
       } else {
         r.col = nextCol; r.row = nextRow;
+        // Concede carencia imediata caso a bomba deslize sobre qualquer heroi
+        const curHeroes = (gameMode==='survival'&&survivalHeroes.length?survivalHeroes:(pvpP1?[pvpP1,pvpP2].filter(Boolean):[player]));
+        curHeroes.forEach(function(h){
+          if(h && boxOverlapsTile(h.x, h.y, h.half+0.05, nextCol, nextRow)){
+            if(!r.clearedFor) r.clearedFor = {};
+            r.clearedFor[h.heroId || 'player'] = false;
+          }
+        });
       }
     }
   }
 }
 
-// casa da bomba (clearedFor[heroId]===false), confere se ele ja deixou a
-// casa fisicamente - se sim, marca como saido (true), passando a bloquea-lo
-// dali pra frente. heroesById: {heroId: heroObj}.
+// Atualiza a saida dos herois das casas de bombas. So quando o heroi sai por
+// completo do perimetro da casa (boxOverlapsTile === false), ele passa a ser bloqueado.
 function updateRuneOccupancy(heroesById){
   for(const r of runes){
-    if(r.exploded || !r.clearedFor) continue;
-    for(const hId in r.clearedFor){
-      if(r.clearedFor[hId] === true) continue;
+    if(r.exploded) continue;
+    if(!r.clearedFor) r.clearedFor = {};
+    for(const hId in heroesById){
       const h = heroesById[hId];
       if(!h) continue;
-      if(!boxOverlapsTile(h.x, h.y, h.half, r.col, r.row)){
-        r.clearedFor[hId] = true;
+      if(r.clearedFor[hId] === false){
+        if(!boxOverlapsTile(h.x, h.y, h.half, r.col, r.row)){
+          r.clearedFor[hId] = true;
+        }
       }
     }
   }
@@ -5684,9 +5896,9 @@ function updateRuneOccupancy(heroesById){
 
 // Planta uma bomba para QUALQUER heroi (PvP/Sobrevivencia). allHeroes: lista
 // de todos os herois da partida (cada um com .heroId) - qualquer um que ja
-// estiver em cima da casa no momento da explosao (nao so quem plantou) ganha
-// carencia para sair livremente, corrigindo o travamento quando uma bomba
-// surge debaixo de um heroi que nao foi quem a plantou.
+// estiver em cima ou encostando na casa no momento em que a bomba surge ganha
+// carencia para sair livremente, eliminando 100% dos travamentos ao plantar
+// bomba colado ao oponente ou a si mesmo.
 function heroPlaceBomb(hero, heroId, allHeroes){
   const activeCount = runes.filter(function(r){ return !r.exploded && r.owner===heroId; }).length;
   if(activeCount >= hero.maxRunes) return false;
@@ -5695,14 +5907,30 @@ function heroPlaceBomb(hero, heroId, allHeroes){
   if(grid[row][col] !== TILE_EMPTY) return false;
 
   const clearedFor = {};
-  (allHeroes || [hero]).forEach(function(h){
+  const list = (allHeroes && allHeroes.length > 0)
+    ? allHeroes
+    : (gameMode === 'survival' && survivalHeroes.length > 0
+        ? survivalHeroes
+        : (pvpP1 ? [pvpP1, pvpP2].filter(Boolean) : [hero]));
+
+  list.forEach(function(h){
+    if(!h) return;
     const hId = h.heroId || heroId;
-    if(Math.floor(h.x)===col && Math.floor(h.y)===row){
-      clearedFor[hId] = false; // esta em cima agora - livre ate sair de vez
+    if(boxOverlapsTile(h.x, h.y, h.half + 0.05, col, row)){
+      clearedFor[hId] = false; // esta em cima ou encostando agora - livre ate sair de vez
     }
   });
 
-  runes.push({col:col,row:row,placedAt:performance.now(),exploded:false,owner:heroId,range:hero.blastRange,leftByPlacer:false,clearedFor:clearedFor});
+  runes.push({
+    col: col,
+    row: row,
+    placedAt: performance.now(),
+    exploded: false,
+    owner: heroId,
+    range: hero.blastRange,
+    leftByPlacer: false,
+    clearedFor: clearedFor
+  });
   return true;
 }
 
@@ -7553,7 +7781,21 @@ function startPvpMatchOnline(){
 
   NetworkManager.on('remoteBombPlace', function(data){
     if(!pvpP2) return;
-    runes.push({col:data.col, row:data.row, placedAt:performance.now(), exploded:false, owner:'opponent', range:pvpP2.blastRange, leftByPlacer:false, clearedFor:{opponent:false}});
+    const clearedFor = {};
+    [pvpP1, pvpP2].forEach(function(h){
+      if(h && boxOverlapsTile(h.x, h.y, h.half + 0.05, data.col, data.row)){
+        clearedFor[h.heroId || 'player'] = false;
+      }
+    });
+    runes.push({
+      col: data.col, row: data.row,
+      placedAt: performance.now(),
+      exploded: false,
+      owner: pvpP2.heroId || 'opponent',
+      range: pvpP2.blastRange,
+      leftByPlacer: false,
+      clearedFor: clearedFor
+    });
   });
 
   NetworkManager.on('remoteBombExplode', function(data){
@@ -7638,13 +7880,16 @@ function assignBotIdentity(bot){
 
 /* ============================================================
    MOTOR DE IA TÁTICA AVANÇADA (PvP & Sobrevivência)
-   - Mapeamento de perigo em tempo real (linha de fogo de bombas, chamas ativas e borda do mapa)
-   - Esquiva prioritária para rotas seguras
-   - Flanqueamento e perseguição inteligente
-   - Armadilhas e posicionamento de bombas com rota de fuga garantida
-   - Coleta ativa de power-ups
+   - Mapeamento de perigo em tempo real (bombas, linhas de fogo com bloqueio por paredes/blocos, chamas e anel de fechamento)
+   - Busca em Largura (BFS) para cálculo de menor caminho em grade 15x13
+   - Esquiva prioritária para rotas 100% seguras
+   - Quebra estratégica de blocos para abrir passagens e expandir território
+   - Simulação preventiva: só planta bomba se houver rota de fuga garantida
+   - Caça e coleta de power-ups e moedas
+   - Flanqueamento, perseguição e emboscadas contra oponentes
 ============================================================ */
-function isTileInDanger(col, row, heroId){
+
+function isTileInDanger(col, row, heroId, simulatedRunes){
   if(col < 0 || col >= COLS || row < 0 || row >= ROWS) return 1000;
   if(isSolidTile(col, row)) return 1000;
 
@@ -7653,33 +7898,36 @@ function isTileInDanger(col, row, heroId){
   // 1. Chamas ativas
   for(let i=0; i<flames.length; i++){
     const f = flames[i];
-    if(f.col === col && f.row === row) danger += 500;
+    if(f.col === col && f.row === row) danger += 900;
   }
 
   // 2. Bombas ativas e cruz de explosão
-  for(let i=0; i<runes.length; i++){
-    const r = runes[i];
+  const activeRunes = simulatedRunes || runes;
+  for(let i=0; i<activeRunes.length; i++){
+    const r = activeRunes[i];
     if(r.exploded) continue;
     const rRange = r.range || 1;
     if(r.col === col && r.row === row){
-      danger += 400;
+      danger += 800;
       continue;
     }
+    // Eixo horizontal (parado por parede e por bloco quebrável)
     if(r.row === row && Math.abs(r.col - col) <= rRange){
       const minC = Math.min(r.col, col), maxC = Math.max(r.col, col);
       let blocked = false;
       for(let c = minC + 1; c < maxC; c++){
         if(isSolidTile(c, row)){ blocked = true; break; }
       }
-      if(!blocked) danger += 350;
+      if(!blocked) danger += 600;
     }
+    // Eixo vertical (parado por parede e por bloco quebrável)
     if(r.col === col && Math.abs(r.row - row) <= rRange){
       const minR = Math.min(r.row, row), maxR = Math.max(r.row, row);
       let blocked = false;
       for(let rr = minR + 1; rr < maxR; rr++){
         if(isSolidTile(col, rr)){ blocked = true; break; }
       }
-      if(!blocked) danger += 350;
+      if(!blocked) danger += 600;
     }
   }
 
@@ -7688,33 +7936,185 @@ function isTileInDanger(col, row, heroId){
   if(closeState && closeState.warningCells){
     for(let i=0; i<closeState.warningCells.length; i++){
       const wc = closeState.warningCells[i];
-      if(wc.row === row && wc.col === col) danger += 450;
+      if(wc.row === row && wc.col === col) danger += 700;
     }
   }
 
   return danger;
 }
 
-function getSafeEvasionDirection(bot, col, row){
-  const dirs = [[0,0], [1,0], [-1,0], [0,1], [0,-1]];
-  const minDanger = isTileInDanger(col, row, bot.heroId);
+// Algoritmo BFS genérico para navegação inteligente em grade
+function findPathBFS(startC, startR, targetPredicate, isWalkablePredicate){
+  if(targetPredicate(startC, startR)) return [];
+  const queue = [{ c: startC, r: startR, path: [] }];
+  const visited = new Uint8Array(COLS * ROWS);
+  visited[startR * COLS + startC] = 1;
 
-  const candidates = [];
-  for(let i=1; i<dirs.length; i++){
-    const d = dirs[i];
-    const nc = col + d[0], nr = row + d[1];
-    if(isSolidTile(nc, nr) || isRuneBlockingHero(nc, nr, bot.heroId)) continue;
-    const dScore = isTileInDanger(nc, nr, bot.heroId);
-    candidates.push({ dir: d, score: dScore });
-  }
-
-  if(candidates.length > 0){
-    candidates.sort(function(a,b){ return a.score - b.score; });
-    if(candidates[0].score < minDanger || candidates[0].score === 0){
-      return candidates[0].dir;
+  const dirs = [[0,-1],[0,1],[-1,0],[1,0]]; // Cima, Baixo, Esquerda, Direita
+  while(queue.length > 0){
+    const curr = queue.shift();
+    if(targetPredicate(curr.c, curr.r)){
+      return curr.path;
+    }
+    for(let i=0; i<4; i++){
+      const d = dirs[i];
+      const nc = curr.c + d[0], nr = curr.r + d[1];
+      if(nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) continue;
+      const idx = nr * COLS + nc;
+      if(visited[idx]) continue;
+      if(!isWalkablePredicate(nc, nr)) continue;
+      visited[idx] = 1;
+      const step = { c: nc, r: nr, dir: d };
+      queue.push({
+        c: nc,
+        r: nr,
+        path: curr.path.length === 0 ? [step] : curr.path.concat([step])
+      });
     }
   }
   return null;
+}
+
+// Verifica se o bot consegue escapar com segurança caso plante uma bomba na posição (botC, botR)
+function canEscapeIfBombPlacedAt(bot, botC, botR){
+  const simulated = runes.concat([{ col: botC, row: botR, range: bot.blastRange, exploded: false }]);
+  const path = findPathBFS(
+    botC, botR,
+    function(c, r){ return isTileInDanger(c, r, bot.heroId, simulated) === 0; },
+    function(c, r){
+      if(c === botC && r === botR) return false;
+      const tile = tileAt(c, r);
+      if(tile === TILE_WALL) return false;
+      if(tile === TILE_BLOCK && !bot.ghostBlocks) return false;
+      if(isRuneBlockingHero(c, r, bot.heroId) && !bot.ghostBombs) return false;
+      return true;
+    }
+  );
+  return path;
+}
+
+// Encontra a rota de esquiva mais curta para uma casa com perigo 0
+function findSafeEvasionPath(bot, col, row){
+  const path = findPathBFS(
+    col, row,
+    function(c, r){ return isTileInDanger(c, r, bot.heroId) === 0; },
+    function(c, r){
+      const tile = tileAt(c, r);
+      if(tile === TILE_WALL) return false;
+      if(tile === TILE_BLOCK && !bot.ghostBlocks) return false;
+      if(isRuneBlockingHero(c, r, bot.heroId) && !bot.ghostBombs) return false;
+      return true;
+    }
+  );
+  if(path && path.length > 0) return path;
+
+  // Fallback: se não houver casa 100% segura acessível, escolhe a vizinha com menor perigo
+  const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+  let bestDir = null;
+  let minDanger = isTileInDanger(col, row, bot.heroId);
+  for(let i=0; i<4; i++){
+    const d = dirs[i];
+    const nc = col + d[0], nr = row + d[1];
+    if(nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) continue;
+    if(isSolidTile(nc, nr) || isRuneBlockingHero(nc, nr, bot.heroId)) continue;
+    const dScore = isTileInDanger(nc, nr, bot.heroId);
+    if(dScore < minDanger){
+      minDanger = dScore;
+      bestDir = d;
+    }
+  }
+  return bestDir ? [{ c: col + bestDir[0], r: row + bestDir[1], dir: bestDir }] : null;
+}
+
+// Encontra o bloco quebrável mais próximo para abrir caminho
+function findNearestReachableBlock(bot, col, row){
+  return findPathBFS(
+    col, row,
+    function(c, r){
+      const neighbors = [[c+1, r], [c-1, r], [c, r+1], [c, r-1]];
+      for(let i=0; i<neighbors.length; i++){
+        const nc = neighbors[i][0], nr = neighbors[i][1];
+        if(nc >= 0 && nc < COLS && nr >= 0 && nr < ROWS && grid[nr][nc] === TILE_BLOCK){
+          return true;
+        }
+      }
+      return false;
+    },
+    function(c, r){
+      if(isSolidTile(c, r) && !(bot.ghostBlocks && grid[r][c] === TILE_BLOCK)) return false;
+      if(isRuneBlockingHero(c, r, bot.heroId) && !bot.ghostBombs) return false;
+      return isTileInDanger(c, r, bot.heroId) === 0;
+    }
+  );
+}
+
+// Encontra o power-up ou moeda segura mais próxima
+function findNearestReachablePowerup(bot, col, row){
+  const activePUs = powerups.filter(function(p){ return !p.collected; });
+  if(activePUs.length === 0 && coinPickups.length === 0) return null;
+
+  return findPathBFS(
+    col, row,
+    function(c, r){
+      return activePUs.some(function(p){ return p.col === c && p.row === r; }) ||
+             coinPickups.some(function(cp){ return !cp.collected && cp.col === c && cp.row === r; });
+    },
+    function(c, r){
+      if(isSolidTile(c, r) && !(bot.ghostBlocks && grid[r][c] === TILE_BLOCK)) return false;
+      if(isRuneBlockingHero(c, r, bot.heroId) && !bot.ghostBombs) return false;
+      return isTileInDanger(c, r, bot.heroId) === 0;
+    }
+  );
+}
+
+function moveBotTowards(bot, targetX, targetY, dt){
+  const diffX = targetX - bot.x;
+  const diffY = targetY - bot.y;
+  const dist = Math.hypot(diffX, diffY);
+  if(dist < 0.05){
+    bot.x = targetX;
+    bot.y = targetY;
+    return true; // alcançou o centro do tile do waypoint
+  }
+
+  const effSpeed = bot.speed;
+  if(Math.abs(diffX) > Math.abs(diffY)){
+    // Eixo principal Horizontal
+    const dx = Math.sign(diffX);
+    const stepX = dx * Math.min(Math.abs(diffX), effSpeed * dt);
+    const nx = bot.x + stepX;
+    if(!boxBlockedForHero(nx, bot.y, bot.half, bot, dx, 0)){
+      bot.x = nx;
+    }
+    // Auto-alinhamento Y ao centro do corredor com velocidade ampliada
+    if(Math.abs(diffY) > 0.005){
+      const stepY = Math.sign(diffY) * Math.min(Math.abs(diffY), effSpeed * dt * 4);
+      const ny = bot.y + stepY;
+      if(!boxBlockedForHero(bot.x, ny, bot.half, bot, 0, Math.sign(diffY))){
+        bot.y = ny;
+      }
+    }
+    bot.dir = dx > 0 ? 'right' : 'left';
+  } else {
+    // Eixo principal Vertical
+    const dy = Math.sign(diffY);
+    const stepY = dy * Math.min(Math.abs(diffY), effSpeed * dt);
+    const ny = bot.y + stepY;
+    if(!boxBlockedForHero(bot.x, ny, bot.half, bot, 0, dy)){
+      bot.y = ny;
+    }
+    // Auto-alinhamento X ao centro do corredor com velocidade ampliada
+    if(Math.abs(diffX) > 0.005){
+      const stepX = Math.sign(diffX) * Math.min(Math.abs(diffX), effSpeed * dt * 4);
+      const nx = bot.x + stepX;
+      if(!boxBlockedForHero(nx, bot.y, bot.half, bot, Math.sign(diffX), 0)){
+        bot.x = nx;
+      }
+    }
+    bot.dir = dy > 0 ? 'down' : 'up';
+  }
+  bot.moving = true;
+  return false;
 }
 
 function updateTacticalBot(bot, targetHero, allHeroes, dt, now){
@@ -7724,81 +8124,145 @@ function updateTacticalBot(bot, targetHero, allHeroes, dt, now){
   const col = Math.floor(bot.x), row = Math.floor(bot.y);
   const currentDanger = isTileInDanger(col, row, bot.heroId);
 
-  // Esquiva imediata se estiver em perigo de explosão ou chamas
+  // 1. PRIORIDADE MÁXIMA: SE ESTIVER EM PERIGO, GARANTE A ESQUIVA IMEDIATA
   if(currentDanger > 0){
-    const evadeDir = getSafeEvasionDirection(bot, col, row);
-    if(evadeDir){
-      bot.dxDir = evadeDir;
-      bot.moving = true;
+    // Se não tiver rota de fuga ou a atual não levar a lugar seguro, recalcula
+    if(!bot.evasionPath || bot.evasionPath.length === 0){
+      bot.evasionPath = findSafeEvasionPath(bot, col, row);
     }
-  } else if(now > bot.nextDecision){
-    bot.nextDecision = now + 160 + Math.random()*220; // micro-decisões rápidas e responsivas
+    if(bot.evasionPath && bot.evasionPath.length > 0){
+      const targetStep = bot.evasionPath[0];
+      const reached = moveBotTowards(bot, targetStep.c + 0.5, targetStep.r + 0.5, dt);
+      if(reached){
+        bot.evasionPath.shift();
+      }
+      bot.moving = true;
+      return;
+    }
+  } else {
+    // Estando em segurança, limpa a rota de esquiva antiga
+    bot.evasionPath = null;
+  }
 
-    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-    const openDirs = dirs.filter(function(d){
-      const nc = col + d[0], nr = row + d[1];
-      return !isSolidTile(nc, nr) && !isRuneBlockingHero(nc, nr, bot.heroId) && isTileInDanger(nc, nr, bot.heroId) === 0;
-    });
+  // 2. SE TEM UMA ROTA ATIVA (ex: acabou de plantar bomba e está recuando, ou indo até um bloco), SEGUE O WAYPOINT
+  if(bot.currentPath && bot.currentPath.length > 0){
+    const targetStep = bot.currentPath[0];
+    // Se a rota levar para um tile que agora tem perigo, descarta para recalcular
+    if(isTileInDanger(targetStep.c, targetStep.r, bot.heroId) > 0){
+      bot.currentPath = null;
+    } else {
+      const reached = moveBotTowards(bot, targetStep.c + 0.5, targetStep.r + 0.5, dt);
+      if(reached){
+        bot.currentPath.shift();
+      }
+      bot.moving = true;
+      return;
+    }
+  }
 
-    let chosenDir = [0,0];
+  // 3. SE CHEGOU AO DESTINO OU NÃO TEM ROTA, TOMA NOVA DECISÃO TÁTICA
+  if(now > (bot.nextDecision || 0)){
+    bot.nextDecision = now + 90 + Math.random() * 80; // ciclo ágil e humanizado
 
-    // 1. Rastreamento tático do alvo e ataque
+    // Chute de bombas se tiver item
+    if(bot.hasBombKick){
+      const checkDirs = [[1,0],[-1,0],[0,1],[0,-1]];
+      for(let i=0; i<checkDirs.length; i++){
+        const cd = checkDirs[i];
+        const nc = col + cd[0], nr = row + cd[1];
+        if(isRuneAt(nc, nr)){
+          tryKickRune(nc, nr, cd[0], cd[1]);
+          break;
+        }
+      }
+    }
+
+    // A. COMBATE CONTRA O ALVO
     if(targetHero && targetHero.alive){
       const dist = Math.hypot(targetHero.x - bot.x, targetHero.y - bot.y);
       const tCol = Math.floor(targetHero.x), tRow = Math.floor(targetHero.y);
 
-      // Ataque de curto/médio alcance com bomba caso tenha rota de fuga
-      if(dist <= 2.3 && (col === tCol || row === tRow || dist < 1.4)){
-        if(openDirs.length >= 1 && Math.random() < bot.skillAccuracy * 0.75){
-          heroPlaceBomb(bot, bot.heroId, allHeroes);
-          chosenDir = openDirs[0];
+      const isAligned = (col === tCol && Math.abs(row - tRow) <= bot.blastRange + 1) ||
+                        (row === tRow && Math.abs(col - tCol) <= bot.blastRange + 1);
+
+      if((isAligned || dist <= 2.2) && dist >= 0.7){
+        const escapeRoute = canEscapeIfBombPlacedAt(bot, col, row);
+        if(escapeRoute && escapeRoute.length > 0 && Math.random() < (bot.skillAccuracy || 0.88)){
+          const placed = heroPlaceBomb(bot, bot.heroId, allHeroes);
+          if(placed){
+            bot.evasionPath = escapeRoute;
+            bot.currentPath = null;
+            bot.nextDecision = now + 150;
+            return;
+          }
         }
       }
 
-      // Flanqueamento inteligente em direção ao oponente
-      if(chosenDir[0] === 0 && chosenDir[1] === 0 && openDirs.length > 0){
-        openDirs.sort(function(a,b){
-          const da = Math.hypot((col + a[0] + 0.5) - targetHero.x, (row + a[1] + 0.5) - targetHero.y);
-          const db = Math.hypot((col + b[0] + 0.5) - targetHero.x, (row + b[1] + 0.5) - targetHero.y);
-          if(dist < 3.0 && Math.random() < 0.3) return Math.random() - 0.5;
-          return da - db;
-        });
-        chosenDir = openDirs[0];
+      // Persegue oponente por caminhos seguros
+      const pathToEnemy = findPathBFS(
+        col, row,
+        function(c, r){ return Math.hypot(c - tCol, r - tRow) <= 1.2; },
+        function(c, r){
+          if(isSolidTile(c, r) && !(bot.ghostBlocks && grid[r][c] === TILE_BLOCK)) return false;
+          if(isRuneBlockingHero(c, r, bot.heroId) && !bot.ghostBombs) return false;
+          return isTileInDanger(c, r, bot.heroId) === 0;
+        }
+      );
+      if(pathToEnemy && pathToEnemy.length > 0){
+        bot.currentPath = pathToEnemy;
+        return;
       }
     }
 
-    // 2. Coleta de Power-ups se o caminho for seguro
-    if(chosenDir[0] === 0 && chosenDir[1] === 0 && powerups.length > 0 && openDirs.length > 0){
-      const activePUs = powerups.filter(function(p){ return !p.collected; });
-      if(activePUs.length > 0){
-        activePUs.sort(function(a,b){
-          return Math.hypot((a.col+0.5)-bot.x, (a.row+0.5)-bot.y) - Math.hypot((b.col+0.5)-bot.x, (b.row+0.5)-bot.y);
-        });
-        const nearestPU = activePUs[0];
-        openDirs.sort(function(a,b){
-          const da = Math.hypot((col+a[0]+0.5)-(nearestPU.col+0.5), (row+a[1]+0.5)-(nearestPU.row+0.5));
-          const db = Math.hypot((col+b[0]+0.5)-(nearestPU.col+0.5), (row+b[1]+0.5)-(nearestPU.row+0.5));
-          return da - db;
-        });
-        chosenDir = openDirs[0];
+    // B. COLETA DE POWER-UPS SEGUROS
+    const pathToPU = findNearestReachablePowerup(bot, col, row);
+    if(pathToPU && pathToPU.length > 0){
+      bot.currentPath = pathToPU;
+      return;
+    }
+
+    // C. QUEBRA DE BLOCOS PARA ABRIR O MAPA
+    const neighbors = [[col+1, row], [col-1, row], [col, row+1], [col, row-1]];
+    const hasAdjacentBlock = neighbors.some(function(n){
+      return n[0] >= 0 && n[0] < COLS && n[1] >= 0 && n[1] < ROWS && grid[n[1]][n[0]] === TILE_BLOCK;
+    });
+
+    if(hasAdjacentBlock){
+      const escapeRoute = canEscapeIfBombPlacedAt(bot, col, row);
+      if(escapeRoute && escapeRoute.length > 0){
+        const placed = heroPlaceBomb(bot, bot.heroId, allHeroes);
+        if(placed){
+          bot.evasionPath = escapeRoute;
+          bot.currentPath = null;
+          bot.nextDecision = now + 160;
+          return;
+        }
       }
     }
 
-    if(chosenDir[0] === 0 && chosenDir[1] === 0){
-      chosenDir = openDirs.length ? openDirs[Math.floor(Math.random()*openDirs.length)] : [0,0];
+    // Procura o bloco quebrável mais próximo para se aproximar e abrir
+    const pathToBlock = findNearestReachableBlock(bot, col, row);
+    if(pathToBlock && pathToBlock.length > 0){
+      bot.currentPath = pathToBlock;
+      return;
     }
 
-    bot.dxDir = chosenDir;
+    // D. MOVIMENTAÇÃO LIVRE / PATRULHA
+    const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+    const openDirs = dirs.filter(function(d){
+      const nc = col + d[0], nr = row + d[1];
+      if(nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) return false;
+      if(isSolidTile(nc, nr) || isRuneBlockingHero(nc, nr, bot.heroId)) return false;
+      return isTileInDanger(nc, nr, bot.heroId) === 0;
+    });
+    if(openDirs.length > 0){
+      const d = openDirs[Math.floor(Math.random() * openDirs.length)];
+      bot.currentPath = [{ c: col + d[0], r: row + d[1], dir: d }];
+      return;
+    }
   }
 
-  bot.moving = (bot.dxDir[0] !== 0 || bot.dxDir[1] !== 0);
-  if(bot.dxDir[0] > 0) bot.dir = 'right';
-  else if(bot.dxDir[0] < 0) bot.dir = 'left';
-  else if(bot.dxDir[1] > 0) bot.dir = 'down';
-  else if(bot.dxDir[1] < 0) bot.dir = 'up';
-
-  heroTryMoveX(bot, bot.heroId, bot.dxDir[0], bot.speed, dt);
-  heroTryMoveY(bot, bot.heroId, bot.dxDir[1], bot.speed, dt);
+  bot.moving = false;
 }
 
 function updatePvpBotAI(bot, dt, now){
@@ -7950,17 +8414,6 @@ function renderPvpMode(now){
   for(const e of entities) e.draw();
 }
 
-function updatePvpHud(){
-  const elapsed = pvpCloseState ? Math.max(0, performance.now()-pvpCloseState.matchStartAt) : 0;
-  const modeLabel = pvpIsOnline ? 'PvP Online' : (pvpP2.isBot ? 'PvP vs Bot' : 'PvP Local');
-  hudEls.phaseTag.textContent = modeLabel + (pvpIsRanked?' (Ranqueada)':' (Livre)') + ' - ' + formatMMSS(elapsed);
-  const p2Label = pvpP2.isBot ? ('\u{1F916} ' + (pvpP2.botName||'Bot')) : '\u{1F7E7} P2';
-  hudEls.monsterTag.textContent = (pvpP1.alive?'\u{1F7E6} P1 vivo':'\u{1F7E6} P1 eliminado') + '   ' + (pvpP2.alive?(p2Label+' vivo'):(p2Label+' eliminado'));
-  hudEls.hearts.innerHTML = '';
-  hudEls.coinText.textContent = '-';
-  hudEls.runeCountText.textContent = '-';
-  hudEls.buffsRow.style.display = 'none';
-}
 
 // Desenha um heroi de arena (PvP/Sobrevivencia): usa a arte real se disponivel,
 // senao cai no desenho vetorial - mesmo padrao ja usado na campanha.
@@ -8250,11 +8703,17 @@ function startSurvivalMatchOnline(){
     SurvivalNetworkManager.on('remoteBombPlace', function(data){
       const h = survivalHeroes[data.slot - 1];
       if(!h) return;
+      const clearedFor = {};
+      survivalHeroes.forEach(function(sh){
+        if(sh && boxOverlapsTile(sh.x, sh.y, sh.half + 0.05, data.col, data.row)){
+          clearedFor[sh.heroId] = false;
+        }
+      });
       runes.push({
         col: data.col, row: data.row,
         placedAt: performance.now(), exploded: false,
         owner: h.heroId, range: h.blastRange,
-        leftByPlacer: false, clearedFor: {}
+        leftByPlacer: false, clearedFor: clearedFor
       });
     });
 
@@ -8438,8 +8897,8 @@ function updateSurvivalMode(dt, now){
     human.moving = (dx!==0||dy!==0);
     if(dx!==0 && dy!==0){ dx*=0.7071; dy*=0.7071; }
     if(dx>0) human.dir='right'; else if(dx<0) human.dir='left'; else if(dy>0) human.dir='down'; else if(dy<0) human.dir='up';
-    heroTryMoveX(human,'player',dx,human.speed,dt);
-    heroTryMoveY(human,'player',dy,human.speed,dt);
+    heroTryMoveX(human, human.heroId || 'player', dx, human.speed, dt);
+    heroTryMoveY(human, human.heroId || 'player', dy, human.speed, dt);
     // Envia posicao local pela rede (throttled a ~14fps)
     SurvivalNetworkManager.sendMove(mySlot, human.x, human.y, human.dir, human.moving);
   }
