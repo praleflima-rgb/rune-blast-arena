@@ -1,0 +1,21 @@
+{
+  "name": "rune-blast-arena",
+  "version": "2.0.0",
+  "description": "Rune Blast Arena - Modular ES6 Economy, Shop, VIP & Season Architecture",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node test_monetization.js"
+  },
+  "keywords": [
+    "game",
+    "arena",
+    "economy",
+    "vip",
+    "shop",
+    "inventory",
+    "supabase"
+  ],
+  "author": "",
+  "license": "ISC"
+}
