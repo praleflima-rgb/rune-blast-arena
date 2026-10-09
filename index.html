@@ -1026,12 +1026,14 @@
     <button id="startBtn" style="display:none;">&#9876;&#65039; Jogar Agora</button>
 
     <div class="accordion-list">
+      <!-- 1. Meu Perfil -->
       <div class="accordion-item">
         <button class="accordion-header" data-target="acc-profile">&#128100; Meu Perfil</button>
         <div class="accordion-body" id="acc-profile">
           <div class="daily-panel" id="profilePanel"><!-- preenchido via JS: renderProfilePanel() --></div>
         </div>
       </div>
+      <!-- 2. Como Jogar -->
       <div class="accordion-item">
         <button class="accordion-header" data-target="acc-legend">&#128214; Como Jogar</button>
         <div class="accordion-body" id="acc-legend">
@@ -1047,32 +1049,35 @@
           </div>
         </div>
       </div>
-      
-      </div>
+      <!-- 3. VIP & Status da Partida -->
       <div class="accordion-item">
-        <button class="accordion-header" data-target="acc-vip">&#128081; VIP e Status da Partida</button>
+        <button class="accordion-header" data-target="acc-vip">&#128081; VIP &amp; Status da Partida</button>
         <div class="accordion-body" id="acc-vip">
           <div class="daily-panel" id="matchPanel"><!-- preenchido via JS: renderMatchPanel() --></div>
         </div>
       </div>
+      <!-- 4. Ranking da Temporada (40 dias) -->
       <div class="accordion-item">
-        <button class="accordion-header" data-target="acc-rank">&#127942; Ranking Diário</button>
+        <button class="accordion-header" data-target="acc-season">&#129351; Ranking da Temporada (40 dias)</button>
+        <div class="accordion-body" id="acc-season">
+          <div class="daily-panel" id="leaderboardPanel"><!-- preenchido via JS: renderLeaderboardPanel() --></div>
+        </div>
+      </div>
+      <!-- 5. Ranking Semanal (PvP / Sobrevivência) -->
+      <div class="accordion-item">
+        <button class="accordion-header" data-target="acc-rank">&#127942; Ranking Semanal (PvP / Sobreviv&#234;ncia)</button>
         <div class="accordion-body" id="acc-rank">
           <div class="daily-panel" id="dailyRankPanel"><!-- preenchido via JS: renderDailyRankPanel() --></div>
         </div>
       </div>
+      <!-- 6. Loja de Equipamentos -->
       <div class="accordion-item">
         <button class="accordion-header" data-target="acc-shop">&#128722; Loja de Equipamentos</button>
         <div class="accordion-body" id="acc-shop">
           <div class="daily-panel" id="equipmentPanel"><!-- preenchido via JS: renderEquipmentPanel() --></div>
         </div>
       </div>
-      <div class="accordion-item">
-        <button class="accordion-header" data-target="acc-season">&#129351; Ranking de Temporada</button>
-        <div class="accordion-body" id="acc-season">
-          <div class="daily-panel" id="leaderboardPanel"><!-- preenchido via JS: renderLeaderboardPanel() --></div>
-        </div>
-      </div>
+      <!-- 7. Indique e Ganhe -->
       <div class="accordion-item">
         <button class="accordion-header" data-target="acc-invite">&#127881; Indique e Ganhe</button>
         <div class="accordion-body" id="acc-invite">
@@ -3937,9 +3942,9 @@ function renderGameModesPanel(){
   const hasPass = hasActiveDailyPass();
   const champions = loadLastChampions();
   const modes = [
-    {id:'campaign', icon:'&#127943;', name:'Campanha (PVE)', desc:'10 fases + Malak', cover:'assets/cover_campaign.jpg', demo:true},
-    {id:'survival', icon:'&#9760;&#65039;', name:'Sobrevivencia', desc:'4 herois &bull; Prêmio R$10 em RBA ao TOP 1', cover:'assets/cover_survival.jpg', needsPass:!isFree, rankMode:'survival', freeTag:isFree},
-    {id:'pvp', icon:'&#9876;&#65039;', name:'PvP Online / Local', desc:'2 jogadores &bull; Pareamento em 30s', cover:'assets/cover_pvp.jpg', needsPass:!isFree, rankMode:'pvp', freeTag:isFree}
+    {id:'campaign', icon:'&#127943;', name:'Campanha (PVE)', desc:'Temporada Ranked 40 Dias &bull; Pr&ecirc;mio R&#36; 100+ ao TOP 1', cover:'assets/cover_campaign.jpg', isSeason:true},
+    {id:'survival', icon:'&#9760;&#65039;', name:'Sobreviv&ecirc;ncia', desc:'Passe Semanal (R&#36; 10,00) &bull; libera PvP + Sobreviv&ecirc;ncia', cover:'assets/cover_survival.jpg', needsPass:!isFree, rankMode:'survival', freeTag:isFree},
+    {id:'pvp', icon:'&#9876;&#65039;', name:'PvP Online / Local', desc:'Passe Semanal (R&#36; 10,00) &bull; 2 jogadores &bull; Pareamento em 30s', cover:'assets/cover_pvp.jpg', needsPass:!isFree, rankMode:'pvp', freeTag:isFree}
   ];
   el.innerHTML =
     '<div class="daily-title">&#127918; Escolha o Modo de Jogo' + (isFree ? ' <span style="color:#5ee6ff;font-size:11px;">(🎉 Evento Grátis Ativo)</span>' : '') + '</div>' +
