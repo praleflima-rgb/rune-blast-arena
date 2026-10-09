@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -1169,7 +1169,8 @@ function syncProfileToSupabase(){
       wallet_gold: walletGold,
       is_vip: vipState.active,
       vip_expires_at: vipState.expiresAt ? new Date(vipState.expiresAt).toISOString() : null,
-      daily_passes: loadDailyPassState()
+      survival_pass_expires: loadModePassExpiry('survival') || null,
+      pvp_pass_expires: loadModePassExpiry('pvp') || null
     })
     .eq('id', currentUserId)
     .then(function(res){
@@ -1214,12 +1215,18 @@ async function loadProfileFromSupabase(userId, usernameHint){
     vipState = {
       active: !!data.is_vip,
       expiresAt: data.vip_expires_at ? new Date(data.vip_expires_at).getTime() : 0,
-      priceBRL: VIP_PRICE_BRL,
+      priceUSD: VIP_PRICE_USD,
+      pricePOL: VIP_PRICE_POL,
       durationDays: VIP_DURATION_DAYS
     };
     refreshVipFlag();
-    dailyPassCache = (typeof data.daily_passes === 'string') ? data.daily_passes : null;
-    try{ if(dailyPassCache) localStorage.setItem(DAILY_PASS_KEY, dailyPassCache); }catch(e){ /* localStorage indisponivel */ }
+    // Restaura passes separados por modo (timestamps de expiracao)
+    if(data.survival_pass_expires){
+      try{ localStorage.setItem(SURVIVAL_PASS_KEY, String(data.survival_pass_expires)); }catch(e){}
+    }
+    if(data.pvp_pass_expires){
+      try{ localStorage.setItem(PVP_PASS_KEY, String(data.pvp_pass_expires)); }catch(e){}
+    }
     playerUsername = data.username || ('Mago' + Math.floor(1000 + Math.random()*9000));
   }
   // Abre o canal Realtime do ranking logo apos carregar o perfil
@@ -3223,18 +3230,26 @@ document.getElementById('quitMatchBtn').addEventListener('click', function(){
 
 /* ============================================================
    SISTEMA VIP & PAGAMENTO VIA CARTEIRA POLYGON (WEB3 / POL / MATIC)
-   Free: 1 partida a cada 6 horas (cooldown com temporizador).
-   VIP: partidas ilimitadas, sem espera. 5.00 POL / 30 dias.
+   Free: 3 tentativas a cada 2 horas (cooldown com temporizador).
+   VIP: partidas ilimitadas, sem espera. $ 7,00 USD (~70 POL) / 30 dias.
+   Passe Sobrevivencia: $ 2,50 USD (~25 POL) / 7 dias (exclusivo Sobrevivencia).
+   Passe PvP:           $ 2,50 USD (~25 POL) / 7 dias (exclusivo PvP 1x1).
+   REGRA: passes sao SEPARADOS - comprar um NAO da acesso ao outro modo.
 ============================================================ */
 const VIP_KEY = 'rb_vip_status_v2';
-const MATCH_STATE_KEY = 'rb_match_state_v2';
-const VIP_PRICE_BRL = 15.00;
-const VIP_PRICE_POL = 5.00;
-const DAILY_PASS_PRICE_BRL = 3.00;
-const DAILY_PASS_PRICE_POL = 7.50; // R$ 3,00 equivalente em POL (~7.5 POL)
+const MATCH_STATE_KEY = 'rb_match_state_v3';
+const VIP_PRICE_USD  = 7.00;
+const VIP_PRICE_POL  = 70.00; // ~$7,00 USD em POL
+const SURVIVAL_PASS_PRICE_USD = 2.50;
+const SURVIVAL_PASS_PRICE_POL = 25.00; // ~$2,50 USD em POL
+const PVP_PASS_PRICE_USD      = 2.50;
+const PVP_PASS_PRICE_POL      = 25.00; // ~$2,50 USD em POL
+const PASS_DURATION_DAYS = 7;          // 7 dias por passe individual
+const PASS_DURATION_MS   = PASS_DURATION_DAYS * 24*60*60*1000;
 const VIP_DURATION_DAYS = 30;
 const VIP_DURATION_MS = VIP_DURATION_DAYS * 24*60*60*1000;
-const FREE_MATCH_COOLDOWN_MS = 6*60*60*1000; // 1 partida gratuita a cada 6 horas
+const FREE_ATTEMPTS_MAX       = 3;     // tentativas gratuitas por recarga
+const FREE_MATCH_COOLDOWN_MS  = 2*60*60*1000; // recarga de 3 tentativas a cada 2 horas
 
 // Evento Especial: Acesso 100% Gratuito (Passe Livre) ate 30/08/2026 as 21:00 BRT
 const FREE_EVENT_END_TIMESTAMP = new Date('2026-08-30T21:00:00-03:00').getTime();
@@ -3478,7 +3493,7 @@ const PolygonWalletManager = (function(){
 function loadVipState(){
   let raw = null;
   try{ raw = JSON.parse(localStorage.getItem(VIP_KEY)); }catch(e){ raw = null; }
-  return raw || { active:false, expiresAt:0, priceBRL:VIP_PRICE_BRL, durationDays:VIP_DURATION_DAYS };
+  return raw || { active:false, expiresAt:0, priceUSD:VIP_PRICE_USD, pricePOL:VIP_PRICE_POL, durationDays:VIP_DURATION_DAYS };
 }
 function saveVipState(state){
   try{ localStorage.setItem(VIP_KEY, JSON.stringify(state)); }catch(e){ /* localStorage indisponivel */ }
@@ -3501,7 +3516,7 @@ function activateVipReal(txHash){
   vipState = {
     active: true,
     expiresAt: Date.now() + VIP_DURATION_MS,
-    priceBRL: VIP_PRICE_BRL,
+    priceUSD: VIP_PRICE_USD,
     pricePOL: VIP_PRICE_POL,
     durationDays: VIP_DURATION_DAYS,
     polygonTx: txHash || null
@@ -3516,7 +3531,7 @@ function activateVipDemo(){
   vipState = {
     active:true,
     expiresAt: Date.now() + VIP_DURATION_MS,
-    priceBRL: VIP_PRICE_BRL,
+    priceUSD: VIP_PRICE_USD,
     pricePOL: VIP_PRICE_POL,
     durationDays: VIP_DURATION_DAYS
   };
@@ -3525,7 +3540,7 @@ function activateVipDemo(){
   renderMatchPanel();
 }
 function deactivateVipDemo(){
-  vipState = { active:false, expiresAt:0, priceBRL:VIP_PRICE_BRL, pricePOL:VIP_PRICE_POL, durationDays:VIP_DURATION_DAYS };
+  vipState = { active:false, expiresAt:0, priceUSD:VIP_PRICE_USD, pricePOL:VIP_PRICE_POL, durationDays:VIP_DURATION_DAYS };
   saveVipState(vipState);
   refreshVipFlag();
   renderMatchPanel();
@@ -3534,30 +3549,59 @@ function deactivateVipDemo(){
 function loadMatchState(){
   let raw = null;
   try{ raw = JSON.parse(localStorage.getItem(MATCH_STATE_KEY)); }catch(e){ raw = null; }
-  return raw || { lastMatchStart: 0 };
+  // attemptsLeft: tentativas gratuitas restantes no lote atual
+  // cooldownStart: timestamp em que o cooldown de recarga comecou (0 = sem cooldown)
+  return raw || { attemptsLeft: FREE_ATTEMPTS_MAX, cooldownStart: 0 };
 }
 function saveMatchState(state){
   try{ localStorage.setItem(MATCH_STATE_KEY, JSON.stringify(state)); }catch(e){ /* localStorage indisponivel */ }
 }
 let matchState = loadMatchState();
 
-// tempo restante (ms) ate a proxima partida gratuita liberar (0 = VIP ou ja liberado)
+// --- Helpers para o sistema de 3 tentativas / 2h ---
+
+// Retorna ms restantes do cooldown de recarga (0 = recarga concluida ou VIP)
 function getMatchCooldownRemainingMs(){
   refreshVipFlag();
   if(isVip) return 0;
-  const elapsed = Date.now() - matchState.lastMatchStart;
+  if(matchState.attemptsLeft > 0) return 0; // ainda ha tentativas no lote
+  if(!matchState.cooldownStart) return 0;
+  const elapsed = Date.now() - matchState.cooldownStart;
   return Math.max(0, FREE_MATCH_COOLDOWN_MS - elapsed);
 }
 
-function canStartMatch(){
-  return refreshVipFlag() || getMatchCooldownRemainingMs() <= 0;
+// Retorna tentativas gratuitas restantes (VIP = ilimitado = FREE_ATTEMPTS_MAX)
+function getFreeAttemptsLeft(){
+  refreshVipFlag();
+  if(isVip) return FREE_ATTEMPTS_MAX;
+  // recarrega automaticamente se o cooldown de 2h ja zerou
+  if(matchState.attemptsLeft <= 0 && matchState.cooldownStart > 0){
+    const elapsed = Date.now() - matchState.cooldownStart;
+    if(elapsed >= FREE_MATCH_COOLDOWN_MS){
+      matchState.attemptsLeft = FREE_ATTEMPTS_MAX;
+      matchState.cooldownStart = 0;
+      saveMatchState(matchState);
+    }
+  }
+  return matchState.attemptsLeft;
 }
 
-// contabiliza o inicio de uma partida (VIP nao consome cooldown)
+function canStartMatch(){
+  return refreshVipFlag() || getFreeAttemptsLeft() > 0;
+}
+
+// Contabiliza o inicio de uma partida (VIP nao consome tentativas).
+// Reduz attemptsLeft em 1; quando chega a 0 inicia o cooldown de 2h.
 function registerMatchStart(){
   if(isVip) return;
-  matchState.lastMatchStart = Date.now();
-  saveMatchState(matchState);
+  getFreeAttemptsLeft(); // recarrega se ja zerou o cooldown
+  if(matchState.attemptsLeft > 0){
+    matchState.attemptsLeft -= 1;
+    if(matchState.attemptsLeft === 0){
+      matchState.cooldownStart = Date.now(); // inicia cooldown de 2h
+    }
+    saveMatchState(matchState);
+  }
 }
 
 function formatDuration(ms){
@@ -3574,9 +3618,8 @@ function formatDuration(ms){
 
 // ---- Ponto unico de entrada para comecar uma partida ----
 // Usado pelo botao "Jogar Agora" e por todos os "Jogar Novamente".
-// Jogadores VIP sempre entram direto. Jogadores Free so entram se o
-// cooldown de 6h ja tiver zerado - caso contrario, mostramos a tela
-// de espera (que sempre oferece um caminho: anuncio, VIP, ou aguardar).
+// Jogadores VIP sempre entram direto. Jogadores Free tem 3 tentativas
+// por lote; ao esgotar, aguardam o cooldown de 2h para recarregar.
 /* ============================================================
    SISTEMA "INDIQUE E GANHE" (+1 PARTIDA GRATIS)
 
@@ -3641,20 +3684,20 @@ function saveReferralRewardState(referrerId, state){
   try{ localStorage.setItem(key, JSON.stringify(state)); }catch(e){ /* localStorage indisponivel */ }
 }
 
-// Credita +1 partida gratis IMEDIATA (zera o cooldown de 6h) ao usuario que indicou,
-// respeitando o limite de REFERRAL_DAILY_CAP recompensas por dia por indicador.
+// Credita +1 tentativa IMEDIATA ao usuario que indicou (sem zerar o cooldown
+// completo - apenas incrementa attemptsLeft), respeitando o limite diario.
 function grantReferralReward(referrerId){
   const state = loadReferralRewardState(referrerId);
   if(state.grantedToday >= REFERRAL_DAILY_CAP){
-    console.warn('[Indique e Ganhe] limite Semanal (' + REFERRAL_DAILY_CAP + ') atingido para', referrerId);
+    console.warn('[Indique e Ganhe] limite diario (' + REFERRAL_DAILY_CAP + ') atingido para', referrerId);
     return false;
   }
   state.grantedToday += 1;
   saveReferralRewardState(referrerId, state);
 
   if(referrerId === myUserId){
-    // mesmo navegador/maquina: da pra zerar o cooldown local de verdade (util p/ testar o fluxo)
-    matchState.lastMatchStart = 0;
+    // mesmo navegador/maquina: credita +1 tentativa imediata
+    matchState.attemptsLeft = Math.min(FREE_ATTEMPTS_MAX, (matchState.attemptsLeft || 0) + 1);
     saveMatchState(matchState);
     renderMatchPanel();
   } else {
@@ -3693,7 +3736,7 @@ function renderInvitePanel(){
   const link = getReferralLink();
   el.innerHTML =
     '<div class="daily-title">&#127873; Indique e Ganhe</div>' +
-    '<div class="daily-milestone">Convide amigos: quando alguem entra pelo seu link e joga a 1a partida, seu cooldown de 6h zera na hora (max ' + REFERRAL_DAILY_CAP + '/dia).</div>' +
+    '<div class="daily-milestone">Convide amigos: quando alguem entra pelo seu link e joga a 1a partida, voce ganha +1 tentativa imediata no seu lote (max ' + REFERRAL_DAILY_CAP + '/dia). Cooldown padrao: 3 tentativas / 2 horas.</div>' +
     '<div class="lb-name-row">' +
       '<input id="refLinkInput" type="text" readonly value="' + escapeHtml(link) + '">' +
       '<button id="copyRefLinkBtn" class="daily-btn">Copiar</button>' +
@@ -3718,7 +3761,8 @@ function tryStartNewRun(){
   clearArenaResultTimeout();
   const overlay = document.getElementById('overlay');
   if(overlay) overlay.classList.add('hidden');
-  if((selectedGameMode === 'pvp' || selectedGameMode === 'survival') && !hasActiveDailyPass()){
+  // Verifica passe especifico do modo selecionado (passes sao SEPARADOS)
+  if((selectedGameMode === 'pvp' || selectedGameMode === 'survival') && !hasActiveModePass(selectedGameMode)){
     showBuyPassRequiredScreen();
     return;
   }
@@ -3745,31 +3789,37 @@ function tryStartNewRun(){
   }
 }
 
-// PvP e Sobrevivencia exigem o Passe Semanal ativo - sem passe, mostra esta
-// tela com botao de compra exclusivamente via Carteira Polygon.
+// PvP e Sobrevivencia exigem o Passe EXCLUSIVO do modo - passes sao SEPARADOS.
+// Sem o passe do modo escolhido, mostra esta tela com botao de compra via Polygon.
 function showBuyPassRequiredScreen(){
   if(isFreeEventActive()){
     tryStartNewRun();
     return;
   }
-  const modeLabel = selectedGameMode === 'pvp' ? 'PvP' : 'Sobrevivencia';
+  const isPvp = selectedGameMode === 'pvp';
+  const modeLabel  = isPvp ? 'PvP 1x1' : 'Sobrevivencia';
+  const modeIcon   = isPvp ? '&#9876;&#65039;' : '&#9760;&#65039;';
+  const pricePOL   = isPvp ? PVP_PASS_PRICE_POL : SURVIVAL_PASS_PRICE_POL;
+  const priceUSD   = isPvp ? PVP_PASS_PRICE_USD  : SURVIVAL_PASS_PRICE_USD;
+  const passTitle  = isPvp ? 'Passe Modo PvP'    : 'Passe Modo Sobrevivencia';
   const overlay = document.getElementById('overlay');
   overlay.classList.remove('hidden');
   overlay.innerHTML =
-    '<h1>&#128274; Passe de Batalha Necessario</h1>' +
-    '<p>O Passe Semanal / Battle Pass e necessario para jogar os modos ranqueados (' + modeLabel + '). Desbloqueia pontuar e competir no ranking ate as 21h de hoje.</p>' +
-    '<p class="daily-milestone" style="max-width:340px;margin:8px auto;text-align:center;">Valor do Passe: <b>' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL</b> (~R$ 3,00)</p>' +
-    '<button id="buyPassPolyNowBtn" class="polygon-pay-btn" style="width:100%;max-width:340px;margin:10px auto;"><span class="poly-icon"></span> Desbloquear com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL / ~R$ 3,00)</button>' +
+    '<h1>&#128274; ' + passTitle + ' Necessario</h1>' +
+    '<p>' + modeIcon + ' O <b>' + passTitle + '</b> e necessario para jogar o modo ' + modeLabel + '. Valido por ' + PASS_DURATION_DAYS + ' dias.</p>' +
+    '<p class="daily-milestone" style="max-width:360px;margin:8px auto;text-align:center;"><b>$ ' + priceUSD.toFixed(2) + ' USD</b> &bull; <b>~' + pricePOL.toFixed(0) + ' POL</b> &bull; ' + PASS_DURATION_DAYS + ' dias</p>' +
+    '<p class="daily-milestone" style="max-width:360px;margin:4px auto;text-align:center;font-size:11px;color:#aaa;">&#128274; Cada passe e exclusivo do seu modo. Para jogar os dois modos, compre cada passe separadamente.</p>' +
+    '<button id="buyPassPolyNowBtn" class="polygon-pay-btn" style="width:100%;max-width:360px;margin:10px auto;"><span class="poly-icon"></span> Desbloquear ' + passTitle + ' (' + pricePOL.toFixed(0) + ' POL / $' + priceUSD.toFixed(2) + ' USD)</button>' +
     '<button id="backToMenuFromLockBtn" style="margin-top:12px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
 
   const polyBtn = document.getElementById('buyPassPolyNowBtn');
   if(polyBtn){
     polyBtn.addEventListener('click', function(){
       PolygonWalletManager.executePayment({
-        title: 'Passe de Batalha Diário',
-        pricePOL: DAILY_PASS_PRICE_POL,
+        title: passTitle + ' (' + PASS_DURATION_DAYS + ' dias)',
+        pricePOL: pricePOL,
         onSuccess: function(tx){
-          buyDailyPassReal(tx);
+          buyModePassReal(selectedGameMode, tx);
           overlay.classList.add('hidden');
           tryStartNewRun();
         }
@@ -3796,11 +3846,12 @@ function showMatchCooldownScreen(){
       return;
     }
     overlay.innerHTML =
-      '<h1>Proxima Partida Gratuita</h1>' +
-      '<p>Jogadores gratuitos jogam 1 partida a cada 6 horas. Desbloqueie partidas ilimitadas com a assinatura VIP via Carteira Polygon.</p>' +
+      '<h1>&#9203; Tentativas Esgotadas</h1>' +
+      '<p>Voce usou as <b>' + FREE_ATTEMPTS_MAX + ' tentativas gratuitas</b> deste lote. Aguarde o recarregamento de 2 horas, assista um anuncio para jogar ja, ou torne-se VIP para partidas ilimitadas.</p>' +
       '<p class="coinsBig">' + formatDuration(remaining) + '</p>' +
-      '<button id="goVipPolyBtn" class="polygon-pay-btn" style="width:100%;max-width:340px;margin:8px auto;"><span class="poly-icon"></span> Virar VIP com Polygon (' + VIP_PRICE_POL.toFixed(2) + ' POL / 30 dias)</button>' +
-      '<button id="unlockNowBtn" class="ad-btn">&#127909; Assistir Anuncio e Jogar Agora</button>';
+      '<p style="font-size:12px;color:#aaa;margin-bottom:4px;">&#8987; Recarga em ' + formatDuration(remaining) + ' &bull; ' + FREE_ATTEMPTS_MAX + ' tentativas retornam ao zerar</p>' +
+      '<button id="goVipPolyBtn" class="polygon-pay-btn" style="width:100%;max-width:360px;margin:8px auto;"><span class="poly-icon"></span> VIP 30 dias &mdash; Ilimitado (' + VIP_PRICE_POL.toFixed(0) + ' POL / $' + VIP_PRICE_USD.toFixed(2) + ' USD)</button>' +
+      '<button id="unlockNowBtn" class="ad-btn">&#127909; Assistir Anuncio e Jogar Agora (+1 tentativa)</button>';
 
     const polyBtn = document.getElementById('goVipPolyBtn');
     if(polyBtn){
@@ -3822,7 +3873,8 @@ function showMatchCooldownScreen(){
         adBtn.disabled = true;
         CrazySDK.showRewardedAd({
           adFinished: function(){
-            matchState.lastMatchStart = 0;
+            // Anuncio: credita +1 tentativa imediata sem zerar o cooldown
+            matchState.attemptsLeft = 1;
             saveMatchState(matchState);
             if(matchCooldownIntervalId){ clearInterval(matchCooldownIntervalId); matchCooldownIntervalId = null; }
             tryStartNewRun();
@@ -3860,16 +3912,18 @@ function renderMatchPanel(){
     el.innerHTML =
       '<div class="daily-title">&#128081; VIP Ativo &mdash; Partidas Ilimitadas (' + daysLeft + ' dia(s) restantes)</div>' +
       walletBadge +
-      '<div class="daily-milestone">&#10004; Voce tem acesso ilimitado a todas as partidas sem nenhum tempo de espera.</div>';
+      '<div class="daily-milestone">&#10004; Acesso ilimitado a todas as partidas (Campanha, Sobrevivencia e PvP) sem espera ou restricao de tentativas.</div>';
   } else {
     const remaining = getMatchCooldownRemainingMs();
+    const attLeft   = getFreeAttemptsLeft();
+    const statusTxt = remaining > 0
+      ? ('&#9203; Recarregando em ' + formatDuration(remaining))
+      : ('&#9989; ' + attLeft + '/' + FREE_ATTEMPTS_MAX + ' tentativas gratuitas disponiveis');
     el.innerHTML =
-      '<div class="daily-title">' +
-        (remaining > 0 ? ('Proxima partida gratuita em ' + formatDuration(remaining)) : 'Partida gratuita disponivel agora') +
-      '</div>' +
+      '<div class="daily-title">' + statusTxt + '</div>' +
       walletBadge +
-      '<div class="daily-milestone">&#128081; VIP joga sem espera nenhuma &mdash; <b>' + VIP_PRICE_POL.toFixed(2) + ' POL</b> / ' + VIP_DURATION_DAYS + ' dias</div>' +
-      '<button id="buyVipPolyPanelBtn" class="polygon-pay-btn" style="width:100%;"><span class="poly-icon"></span> Comprar VIP com Polygon (' + VIP_PRICE_POL.toFixed(2) + ' POL)</button>';
+      '<div class="daily-milestone">&#128081; VIP: partidas ilimitadas &mdash; <b>' + VIP_PRICE_POL.toFixed(0) + ' POL</b> (~$' + VIP_PRICE_USD.toFixed(2) + ' USD) / ' + VIP_DURATION_DAYS + ' dias</div>' +
+      '<button id="buyVipPolyPanelBtn" class="polygon-pay-btn" style="width:100%;"><span class="poly-icon"></span> Comprar VIP com Polygon (' + VIP_PRICE_POL.toFixed(0) + ' POL / $' + VIP_PRICE_USD.toFixed(2) + ' USD)</button>';
   }
 
   const polyBtn = document.getElementById('buyVipPolyPanelBtn');
@@ -3889,7 +3943,8 @@ function renderMatchPanel(){
 let selectedGameMode = null; // 'campaign' | 'survival' | 'pvp' - null = ainda nao escolhido
 
 function selectGameMode(mode){
-  if((mode === 'pvp' || mode === 'survival') && !hasActiveDailyPass()){
+  // Verifica passe exclusivo do modo (passes sao independentes)
+  if((mode === 'pvp' || mode === 'survival') && !hasActiveModePass(mode)){
     selectedGameMode = mode;
     showBuyPassRequiredScreen();
     return;
@@ -3941,23 +3996,43 @@ function renderGameModesPanel(){
   const isFree = isFreeEventActive();
   const hasPass = hasActiveDailyPass();
   const champions = loadLastChampions();
+  const hasSurvPass = hasActiveModePass('survival');
+  const hasPvpPass  = hasActiveModePass('pvp');
   const modes = [
-    {id:'campaign', icon:'&#127943;', name:'Campanha (PVE)', desc:'Temporada Ranked 40 Dias &bull; Pr&ecirc;mio R&#36; 100+ ao TOP 1', cover:'assets/cover_campaign.jpg', isSeason:true},
-    {id:'survival', icon:'&#9760;&#65039;', name:'Sobreviv&ecirc;ncia', desc:'Passe Semanal (R&#36; 10,00) &bull; libera PvP + Sobreviv&ecirc;ncia', cover:'assets/cover_survival.jpg', needsPass:!isFree, rankMode:'survival', freeTag:isFree},
-    {id:'pvp', icon:'&#9876;&#65039;', name:'PvP Online / Local', desc:'Passe Semanal (R&#36; 10,00) &bull; 2 jogadores &bull; Pareamento em 30s', cover:'assets/cover_pvp.jpg', needsPass:!isFree, rankMode:'pvp', freeTag:isFree}
+    {
+      id:'campaign', icon:'&#127943;', name:'Campanha (PVE)',
+      desc:'Temporada Ranked 40 Dias &bull; Pr&ecirc;mio R&#36; 100+ ao TOP 1',
+      cover:'assets/cover_campaign.jpg', isSeason:true
+    },
+    {
+      id:'survival', icon:'&#9760;&#65039;', name:'Sobreviv&ecirc;ncia',
+      desc:'Passe Sobreviv&ecirc;ncia $2,50 USD (~25 POL) &bull; 7 dias &bull; Exclusivo deste modo',
+      cover:'assets/cover_survival.jpg',
+      needsPass:!isFree && !hasSurvPass, rankMode:'survival', freeTag:isFree, hasPass:hasSurvPass
+    },
+    {
+      id:'pvp', icon:'&#9876;&#65039;', name:'PvP Online / Local',
+      desc:'Passe PvP $2,50 USD (~25 POL) &bull; 7 dias &bull; Exclusivo deste modo &bull; 2 jogadores',
+      cover:'assets/cover_pvp.jpg',
+      needsPass:!isFree && !hasPvpPass, rankMode:'pvp', freeTag:isFree, hasPass:hasPvpPass
+    }
   ];
   el.innerHTML =
     '<div class="daily-title">&#127918; Escolha o Modo de Jogo' + (isFree ? ' <span style="color:#5ee6ff;font-size:11px;">(🎉 Evento Grátis Ativo)</span>' : '') + '</div>' +
     modes.map(function(m){
       const sel = m.id === selectedGameMode;
-      const locked = m.needsPass && !hasPass;
+      const locked = m.needsPass;
       const champion = m.rankMode ? champions[m.rankMode] : null;
       const coverStyle = m.cover ? ' style="background-image:linear-gradient(180deg,rgba(10,6,15,.15),rgba(10,6,15,.85)),url(\'' + m.cover + '\');background-size:cover;background-position:center 20%;"' : '';
+      let passTag = '';
+      if(locked)      passTag = ' &mdash; &#128274; Passe ' + (m.id==='pvp'?'PvP':'Sobreviv&ecirc;ncia') + ' ($2,50 USD / 25 POL) necessario';
+      else if(m.hasPass) passTag = ' &mdash; <b style="color:#5ee6ff;">&#10003; Passe Ativo (' + PASS_DURATION_DAYS + ' dias)</b>';
+      else if(m.freeTag)  passTag = ' &mdash; <b style="color:#5ee6ff;">🎉 100% Grátis no Evento</b>';
       return '<div class="mode-card mode-card-big' + (sel?' selected':'') + (m.cover?' has-cover':'') + '" data-mode="' + m.id + '"' + coverStyle + '>' +
-        '<span class="mode-name">' + m.icon + ' ' + m.name + (m.demo ? ' <span class="mode-demo-tag">DEMO</span>' : '') + '<br><small>' + m.desc + (locked ? ' &mdash; \u{1F512} Passe Semanal (R$ 10,00) necessario' : (m.freeTag ? ' &mdash; <b style="color:#5ee6ff;">🎉 100% Grátis no Evento</b>' : '')) + '</small>' +
+        '<span class="mode-name">' + m.icon + ' ' + m.name + (m.demo ? ' <span class="mode-demo-tag">DEMO</span>' : '') + '<br><small>' + m.desc + passTag + '</small>' +
         (champion ? '<br><small class="mode-champion-tag">\u{1F451} Ultimo Campeao: ' + escapeHtml(champion) + '</small>' : '') +
         '</span>' +
-        (sel ? '<span class="mode-badge sel">SELECIONADO</span>' : (m.freeTag ? '<span class="mode-badge" style="background:rgba(94,230,255,.18);color:#5ee6ff;border-color:rgba(94,230,255,.45);">🎉 GRÁTIS</span>' : (locked ? '<span class="mode-badge">\u{1F512} PASSE</span>' : ''))) +
+        (sel ? '<span class="mode-badge sel">SELECIONADO</span>' : (m.freeTag ? '<span class="mode-badge" style="background:rgba(94,230,255,.18);color:#5ee6ff;border-color:rgba(94,230,255,.45);">🎉 GRÁTIS</span>' : (m.hasPass ? '<span class="mode-badge" style="background:rgba(60,220,130,.18);color:#3cdc82;border-color:rgba(60,220,130,.45);">&#10003; ATIVO</span>' : (locked ? '<span class="mode-badge">&#128274; PASSE</span>' : '')))) +
       '</div>';
     }).join('');
   el.querySelectorAll('.mode-card').forEach(function(card){
@@ -4219,10 +4294,11 @@ const RANK_MODES = [
   {id:'survival', name:'Sobrevivência', icon:'\u2620\uFE0F'},
   {id:'pvp',       name:'PvP',           icon:'\u2694\uFE0F'}
 ];
-const DAILY_PASS_PRICE_CENTS = 300; // R$3,00 - passe unico, vale para os dois modos
+// Passes SEPARADOS por modo - cada um e comprado individualmente
+const SURVIVAL_PASS_KEY = 'rb_survival_pass_v1'; // armazena timestamp de expiracao
+const PVP_PASS_KEY      = 'rb_pvp_pass_v1';      // armazena timestamp de expiracao
 const DAILY_RESET_HOUR = 21; // corte do ciclo: 21h todos os dias
 const DAILY_RANK_KEY_PREFIX = 'rb_daily_rank_v2_';
-const DAILY_PASS_KEY = 'rb_daily_pass_v2';
 const DAILY_TITLES_KEY = 'rb_daily_titles_v2';
 const DAILY_HISTORY_KEY = 'rb_daily_history_v2';
 const LAST_CHAMPIONS_KEY = 'rb_last_champions_v1';
@@ -4268,37 +4344,53 @@ function getCycleEndTimestamp(cycleDateKey){
   return new Date(parts[0], parts[1]-1, parts[2], DAILY_RESET_HOUR, 0, 0, 0).getTime();
 }
 
-// Passe UNICO (sem categorias de preco) - guarda so a data do ciclo em que
-// foi comprado. Continua sendo uma compra de DEMONSTRACAO local (mesmo
-// padrao do botao de VIP): nao ha checkout nem carteira real conectada
-// aqui - ver a explicacao completa dada junto com esta atualizacao.
-let dailyPassCache = null;
-function loadDailyPassState(){
-  if(dailyPassCache !== null) return dailyPassCache;
-  let v = null;
-  try{ v = localStorage.getItem(DAILY_PASS_KEY); }catch(e){ v = null; }
-  dailyPassCache = v;
-  return dailyPassCache;
+// Passes SEPARADOS por modo: 'survival' e 'pvp', cada um com validade de 7 dias.
+// Compatibilidade retroativa: rb_daily_pass_v2 antigo e ignorado (novo sistema usa
+// rb_survival_pass_v1 e rb_pvp_pass_v1 com timestamps de expiracao em ms).
+
+function loadModePassExpiry(mode){
+  const key = mode === 'pvp' ? PVP_PASS_KEY : SURVIVAL_PASS_KEY;
+  let v = 0;
+  try{ v = parseInt(localStorage.getItem(key), 10) || 0; }catch(e){ v = 0; }
+  return v;
 }
-function saveDailyPassState(cycleDate){
-  dailyPassCache = cycleDate;
-  try{ localStorage.setItem(DAILY_PASS_KEY, cycleDate); }catch(e){ /* localStorage indisponivel */ }
+function saveModePassExpiry(mode, expiresAt){
+  const key = mode === 'pvp' ? PVP_PASS_KEY : SURVIVAL_PASS_KEY;
+  try{ localStorage.setItem(key, String(expiresAt)); }catch(e){ /* localStorage indisponivel */ }
   syncProfileToSupabase();
 }
+
+// Verifica se o passe do modo especifico ainda esta ativo
+function hasActiveModePass(mode){
+  if(isFreeEventActive()) return true; // evento especial: tudo gratuito
+  return loadModePassExpiry(mode) > Date.now();
+}
+
+// hasActiveDailyPass: mantido para compatibilidade - retorna true apenas se AMBOS
+// os passes estiverem ativos (ou evento gratuito). Para logica de modo especifico,
+// use hasActiveModePass(mode).
 function hasActiveDailyPass(){
-  if(isFreeEventActive()) return true; // 100% GRATUITO para todos durante o evento especial
-  return loadDailyPassState() === getCycleDateKey();
+  if(isFreeEventActive()) return true;
+  return hasActiveModePass('survival') && hasActiveModePass('pvp');
 }
-function buyDailyPass(){
-  saveDailyPassState(getCycleDateKey());
+
+// Compra o passe para um modo especifico (7 dias a partir de agora)
+function buyModePass(mode){
+  saveModePassExpiry(mode, Date.now() + PASS_DURATION_MS);
 }
-function buyDailyPassReal(txHash){
-  saveDailyPassState(getCycleDateKey());
-  try{ localStorage.setItem('rb_daily_pass_tx', txHash || ''); }catch(e){}
+function buyModePassReal(mode, txHash){
+  saveModePassExpiry(mode, Date.now() + PASS_DURATION_MS);
+  const modeLabel = mode === 'pvp' ? 'PvP' : 'Sobrevivencia';
+  try{ localStorage.setItem('rb_pass_tx_' + mode, txHash || ''); }catch(e){}
   renderEquipmentPanel();
   renderDailyRankPanel();
   renderGameModesPanel();
-  logStatus('Passe de Batalha desbloqueado com sucesso!', 5000);
+  logStatus('Passe ' + modeLabel + ' desbloqueado por ' + PASS_DURATION_DAYS + ' dias!', 5000);
+}
+// Alias para compatibilidade com chamadas antigas que ainda usam buyDailyPassReal
+function buyDailyPassReal(txHash){
+  buyModePassReal('survival', txHash);
+  buyModePassReal('pvp', txHash);
 }
 
 function loadDailyTitles(){
@@ -4685,14 +4777,30 @@ function renderDailyRankPanel(){
       }).join('') + '</div>'
     : '';
 
+  const hasSurvPass2 = hasActiveModePass('survival');
+  const hasPvpPass2  = hasActiveModePass('pvp');
+
+  function passStatusBadge(mode, hasPas){
+    if(isFree) return '<span class="rank-pass-status" style="color:#5ee6ff;">&#127881; Evento Gratis</span>';
+    if(hasPas){
+      const expiresAt = loadModePassExpiry(mode);
+      const daysLeft = Math.max(0, Math.ceil((expiresAt - Date.now()) / (24*60*60*1000)));
+      return '<span class="rank-pass-status">&#10003; Passe ' + (mode==='pvp'?'PvP':'Sobrevivencia') + ' ativo (' + daysLeft + ' dia(s))</span>';
+    }
+    const pricePOL = mode === 'pvp' ? PVP_PASS_PRICE_POL : SURVIVAL_PASS_PRICE_POL;
+    const priceUSD = mode === 'pvp' ? PVP_PASS_PRICE_USD  : SURVIVAL_PASS_PRICE_USD;
+    return '<button class="polygon-pay-btn buy-rank-pass-poly-btn" data-mode="' + mode + '" style="flex:1;min-width:180px;"><span class="poly-icon"></span> Passe ' + (mode==='pvp'?'PvP':'Sobreviv&ecirc;ncia') + ' (' + pricePOL.toFixed(0) + ' POL / $' + priceUSD.toFixed(2) + ' USD &bull; ' + PASS_DURATION_DAYS + ' dias)</button>';
+  }
+
   const passRowHtml = isFree
-    ? '<div class="rank-pass-row"><span class="rank-pass-status" style="color:#5ee6ff;font-weight:bold;">\u{1F389} PASSE LIVRE ATIVO &mdash; Evento Especial 100% Gratuito (Vale Ranking e Premios)!</span></div>'
-    : (hasPass
-        ? '<div class="rank-pass-row"><span class="rank-pass-status">\u2705 Passe ativo hoje (vale PvP e Sobrevivencia)</span></div>'
-        : '<div class="rank-pass-row" style="flex-direction:column;align-items:stretch;gap:6px;">' +
-            '<span class="daily-milestone">&#128274; Desbloqueie o Passe para pontuar nos Rankings Semanals:</span>' +
-            '<button id="buyRankPassPolyBtn" class="polygon-pay-btn" style="width:100%;"><span class="poly-icon"></span> Desbloquear Passe com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL / ~R$ 3,00)</button>' +
-          '</div>');
+    ? '<div class="rank-pass-row"><span class="rank-pass-status" style="color:#5ee6ff;font-weight:bold;">\u{1F389} PASSE LIVRE ATIVO &mdash; Evento Especial 100% Gratuito!</span></div>'
+    : '<div class="rank-pass-row" style="flex-direction:column;align-items:stretch;gap:8px;">' +
+        '<span class="daily-milestone">&#128274; Passes de Batalha (compra SEPARADA por modo &bull; 7 dias cada):</span>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+          passStatusBadge('survival', hasSurvPass2) +
+          passStatusBadge('pvp', hasPvpPass2) +
+        '</div>' +
+      '</div>';
 
   el.innerHTML =
     '<div class="daily-title">\u{1F3C6} Rankings Semanals' + (isFree ? ' &bull; <span style="color:#5ee6ff;font-size:11px;">Passe Livre Liberado</span>' : '') + '</div>' +
@@ -4702,18 +4810,18 @@ function renderDailyRankPanel(){
     renderRankBoardHtml('survival') +
     renderRankBoardHtml('pvp');
 
-  const rankPolyBtn = document.getElementById('buyRankPassPolyBtn');
-  if(rankPolyBtn){
-    rankPolyBtn.addEventListener('click', function(){
+  el.querySelectorAll('.buy-rank-pass-poly-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const mode = btn.getAttribute('data-mode');
+      const pricePOL = mode === 'pvp' ? PVP_PASS_PRICE_POL : SURVIVAL_PASS_PRICE_POL;
+      const priceUSD = mode === 'pvp' ? PVP_PASS_PRICE_USD  : SURVIVAL_PASS_PRICE_USD;
       PolygonWalletManager.executePayment({
-        title: 'Passe de Batalha Diário',
-        pricePOL: DAILY_PASS_PRICE_POL,
-        onSuccess: function(tx){
-          buyDailyPassReal(tx);
-        }
+        title: 'Passe ' + (mode==='pvp'?'PvP':'Sobrevivencia') + ' (' + PASS_DURATION_DAYS + ' dias)',
+        pricePOL: pricePOL,
+        onSuccess: function(tx){ buyModePassReal(mode, tx); }
       });
     });
-  }
+  });
 }
 
 function updateFreeEventBannerCountdown(){
@@ -6065,16 +6173,35 @@ function renderEquipmentPanel(){
   if(!el) return;
 
   const isFree = isFreeEventActive();
-  const hasPass = hasActiveDailyPass();
-  const passHtml =
-    '<div class="equip-item-row" style="flex-wrap:wrap;gap:8px;">' +
-      '<span class="equip-item-info" style="flex:1 1 100%;"><b>Passe Semanal / Battle Pass</b><br><small>Libera pontuar no Ranking Semanal (PvP e Sobrevivencia) &bull; Valor: <b>' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL</b> (~R$ 3,00)</small></span>' +
-      (isFree
-        ? '<span class="rank-pass-status" style="color:#5ee6ff;font-weight:bold;">\u{1F389} Evento Gratis Ativo (Passe Livre ate 30/08 as 21h)</span>'
-        : (hasPass
-            ? '<span class="rank-pass-status">\u2705 Ativo hoje</span>'
-            : '<button class="polygon-pay-btn buy-pass-poly-btn" style="flex:1;min-width:200px;"><span class="poly-icon"></span> Comprar com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL / ~R$ 3,00)</button>')) +
+  const hasSurvPass = hasActiveModePass('survival');
+  const hasPvpPass  = hasActiveModePass('pvp');
+
+  function passCard(mode, hasPas){
+    const isPvp    = mode === 'pvp';
+    const lbl      = isPvp ? 'PvP 1x1' : 'Sobrevivencia';
+    const icon     = isPvp ? '&#9876;&#65039;' : '&#9760;&#65039;';
+    const pricePOL = isPvp ? PVP_PASS_PRICE_POL : SURVIVAL_PASS_PRICE_POL;
+    const priceUSD = isPvp ? PVP_PASS_PRICE_USD  : SURVIVAL_PASS_PRICE_USD;
+    let actionHtml;
+    if(isFree){
+      actionHtml = '<span class="rank-pass-status" style="color:#5ee6ff;font-weight:bold;">&#127881; Evento Gratis</span>';
+    } else if(hasPas){
+      const expiresAt = loadModePassExpiry(mode);
+      const daysLeft  = Math.max(0, Math.ceil((expiresAt - Date.now()) / (24*60*60*1000)));
+      actionHtml = '<span class="rank-pass-status">&#10003; Ativo (' + daysLeft + ' dia(s))</span>';
+    } else {
+      actionHtml = '<button class="polygon-pay-btn buy-pass-poly-btn" data-mode="' + mode + '" style="flex:1;min-width:200px;"><span class="poly-icon"></span> ' + pricePOL.toFixed(0) + ' POL / $' + priceUSD.toFixed(2) + ' USD</button>';
+    }
+    return '<div class="equip-item-row" style="flex-wrap:wrap;gap:8px;">' +
+      '<span class="equip-item-info" style="flex:1 1 60%;">' +
+        '<b>' + icon + ' Passe Modo ' + lbl + '</b><br>' +
+        '<small>Libera pontuar no Ranking Semanal (' + lbl + ') &bull; <b>$' + priceUSD.toFixed(2) + ' USD (~' + pricePOL.toFixed(0) + ' POL)</b> &bull; ' + PASS_DURATION_DAYS + ' dias &bull; Exclusivo deste modo</small>' +
+      '</span>' +
+      actionHtml +
     '</div>';
+  }
+
+  const passHtml = passCard('survival', hasSurvPass) + passCard('pvp', hasPvpPass);
 
   const byChar = {};
   EQUIPMENT_ITEMS.forEach(function(it){ (byChar[it.character] = byChar[it.character]||[]).push(it); });
@@ -6103,8 +6230,8 @@ function renderEquipmentPanel(){
   }).join('');
 
   el.innerHTML =
-    '<div class="daily-title">\u{1F3AB} Passe Semanal</div>' +
-    '<div class="daily-milestone">Compre e ja pode disputar o Ranking Semanal no PvP e na Sobrevivencia ate o fechamento de hoje (21h).</div>' +
+    '<div class="daily-title">\u{1F3AB} Passes de Batalha</div>' +
+    '<div class="daily-milestone">Cada passe e <b>exclusivo do seu modo</b> e vale por ' + PASS_DURATION_DAYS + ' dias. Compre apenas o que precisa jogar. Para jogar os dois modos, compre os dois passes separadamente.</div>' +
     '<div class="equip-list">' + passHtml + '</div>' +
     '<div class="daily-title" style="margin-top:12px;">\u{1F6D2} Loja de Equipamentos</div>' +
     '<div class="daily-milestone">Sua carteira: <b>' + walletGold + ' \u{1FA99}</b> (ganhe jogando a Campanha)</div>' +
@@ -6113,22 +6240,14 @@ function renderEquipmentPanel(){
 
   el.querySelectorAll('.buy-pass-poly-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
+      const mode = btn.getAttribute('data-mode') || 'survival';
+      const pricePOL = mode === 'pvp' ? PVP_PASS_PRICE_POL : SURVIVAL_PASS_PRICE_POL;
+      const priceUSD = mode === 'pvp' ? PVP_PASS_PRICE_USD  : SURVIVAL_PASS_PRICE_USD;
       PolygonWalletManager.executePayment({
-        title: 'Passe de Batalha Diário',
-        pricePOL: DAILY_PASS_PRICE_POL,
-        onSuccess: function(tx){
-          buyDailyPassReal(tx);
-        }
+        title: 'Passe ' + (mode==='pvp'?'PvP':'Sobrevivencia') + ' (' + PASS_DURATION_DAYS + ' dias)',
+        pricePOL: pricePOL,
+        onSuccess: function(tx){ buyModePassReal(mode, tx); }
       });
-    });
-  });
-
-  el.querySelectorAll('.buy-pass-btn').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      buyDailyPass();
-      renderEquipmentPanel();
-      renderDailyRankPanel();
-      renderGameModesPanel();
     });
   });
 
