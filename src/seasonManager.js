@@ -310,18 +310,20 @@ export class SeasonManager {
    */
   getWeeklyEventStatus() {
     const now = new Date();
-    // Próximo domingo às 21h BRT (UTC-3 = 00h UTC de segunda)
-    const nextSunday = new Date();
+    const nextSunday = new Date(now);
     const currentDay = now.getDay();
-    const daysUntilSunday = (7 - currentDay) % 7;
-    nextSunday.setDate(now.getDate() + daysUntilSunday);
-    nextSunday.setHours(21, 0, 0, 0);
-
-    if (nextSunday.getTime() <= now.getTime()) {
-      nextSunday.setDate(nextSunday.getDate() + 7);
+    if (currentDay === 0) {
+      nextSunday.setHours(21, 0, 0, 0);
+      if (now.getTime() >= nextSunday.getTime()) {
+        nextSunday.setDate(nextSunday.getDate() + 7);
+      }
+    } else {
+      const daysUntilSunday = 7 - currentDay;
+      nextSunday.setDate(now.getDate() + daysUntilSunday);
+      nextSunday.setHours(21, 0, 0, 0);
     }
 
-    const msUntilReset = nextSunday.getTime() - now.getTime();
+    const msUntilReset = Math.max(0, nextSunday.getTime() - now.getTime());
     const hours = Math.floor(msUntilReset / (1000 * 60 * 60));
     const minutes = Math.floor((msUntilReset % (1000 * 60 * 60)) / (1000 * 60));
 

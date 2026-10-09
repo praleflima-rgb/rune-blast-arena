@@ -331,43 +331,9 @@ export class ShopInventorySystem {
    * @returns {{ success: boolean, message: string, item?: Object }}
    */
   buyItem(itemId, playerProfile) {
-    const item = this.catalog.find((i) => i.id === itemId);
-
-    if (!item) {
-      return { success: false, message: 'Item não encontrado no catálogo da Loja.' };
-    }
-
-    if (item.purchased) {
-      return { success: false, message: 'Você já possui este item em seu inventário.' };
-    }
-
-    // Valida saldo de ouro ou gemas
-    const currencyKey = item.currency === 'gems' ? 'gems' : 'gold';
-    const playerBalance = playerProfile[currencyKey] || 0;
-
-    if (playerBalance < item.price) {
-      const currencyLabel = item.currency === 'gems' ? 'gemas' : 'moedas de ouro';
-      return {
-        success: false,
-        message: `Saldo insuficiente! Você precisa de ${item.price} ${currencyLabel} (Saldo atual: ${playerBalance}).`
-      };
-    }
-
-    // Deduz moedas
-    if (typeof playerProfile.deductCurrency === 'function') {
-      playerProfile.deductCurrency(item.currency, item.price);
-    } else {
-      playerProfile[currencyKey] -= item.price;
-    }
-
-    // Marca como adquirido
-    item.purchased = true;
-    this._saveState();
-
     return {
-      success: true,
-      message: `🎉 Parabéns! Você adquiriu ${item.name}!`,
-      item: { ...item }
+      success: false,
+      message: 'Loja de Equipamentos em Manutenção / Brevemente Disponível'
     };
   }
 

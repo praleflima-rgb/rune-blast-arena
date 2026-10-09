@@ -184,12 +184,19 @@ export class RankedSystem {
 
   getSecondsToWeeklyReset() {
     const now = new Date();
-    const nextSunday = new Date(now);
-    const diff = (7 - now.getDay()) % 7;
-    nextSunday.setDate(now.getDate() + (diff === 0 ? 7 : diff));
-    nextSunday.setHours(21, 0, 0, 0);
-    if (nextSunday <= now) nextSunday.setDate(nextSunday.getDate() + 7);
-    return Math.max(0, Math.ceil((nextSunday.getTime() - now.getTime()) / 1000));
+    const target = new Date(now);
+    const day = now.getDay();
+    if (day === 0) {
+      target.setHours(21, 0, 0, 0);
+      if (now.getTime() >= target.getTime()) {
+        target.setDate(target.getDate() + 7);
+      }
+    } else {
+      const daysUntilSunday = 7 - day;
+      target.setDate(now.getDate() + daysUntilSunday);
+      target.setHours(21, 0, 0, 0);
+    }
+    return Math.max(0, Math.ceil((target.getTime() - now.getTime()) / 1000));
   }
 
   calculateMatchGold(baseGold, isVip = false) {

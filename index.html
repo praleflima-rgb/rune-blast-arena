@@ -4056,8 +4056,16 @@ const PLAYER_NAME_KEY = 'rb_player_name_v1';
 const PLAYER_BEST_SCORE_KEY = 'rb_best_score_v1';
 const PRIZE_POOL_KEY = 'rb_prize_pool_v1';
 
+const INITIAL_SEASON_PRIZE_POOL = 100.00;
 const PRIZE_POOL_TIER1 = 300; // R$ - premiacao base: TOP 10 + 1 sorteado
 const PRIZE_POOL_TIER2 = 600; // R$ - premiacao ampliada: TOP 20 + 2 sorteados
+
+const MOCK_PLAYERS_TO_REMOVE = ['gmblack', 'bili', 'marymovie'];
+function isMockPlayer(name){
+  if(!name) return false;
+  const n = String(name).toLowerCase().trim();
+  return MOCK_PLAYERS_TO_REMOVE.some(function(m){ return n === m || n.startsWith(m); });
+}
 
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, function(c){
@@ -4076,17 +4084,44 @@ function savePlayerName(n){
 let playerName = loadPlayerName();
 
 function loadPrizePool(){
-  let v = 0;
-  try{ v = parseFloat(localStorage.getItem(PRIZE_POOL_KEY)); }catch(e){ v = 0; }
-  return isNaN(v) ? 0 : v;
+  let v = null;
+  try{
+    const stored = localStorage.getItem(PRIZE_POOL_KEY);
+    if(stored !== null) v = parseFloat(stored);
+  }catch(e){ v = null; }
+  if(v === null || isNaN(v) || v < INITIAL_SEASON_PRIZE_POOL){
+    v = INITIAL_SEASON_PRIZE_POOL;
+    savePrizePool(v);
+  }
+  return v;
+}
+function savePrizePool(v){
+  try{ localStorage.setItem(PRIZE_POOL_KEY, String(v)); }catch(e){}
 }
 let seasonPrizePool = loadPrizePool();
+
+// Zera completamente qualquer mock data e pontuacoes de teste anteriores
+const SEASON_RESET_ZERO_V3 = 'rb_season_zero_clean_v3';
+(function clearSeasonMockDataOnce(){
+  try{
+    if(!localStorage.getItem(SEASON_RESET_ZERO_V3)){
+      localStorage.removeItem(LEADERBOARD_KEY);
+      localStorage.removeItem(PLAYER_BEST_SCORE_KEY);
+      localStorage.removeItem(SEASON_POINTS_KEY);
+      localStorage.removeItem(COIN_REMAINDER_KEY);
+      localStorage.setItem(SEASON_RESET_ZERO_V3, '1');
+    }
+  }catch(e){}
+})();
 
 function loadLeaderboard(){
   let list = null;
   try{ list = JSON.parse(localStorage.getItem(LEADERBOARD_KEY)); }catch(e){ list = null; }
   if(!list || !Array.isArray(list)){
-    list = []; // ranking comeca vazio - so jogadores reais que pontuarem aparecem aqui
+    list = []; // ranking inicia totalmente zerado/vazio
+    saveLeaderboard(list);
+  } else {
+    list = list.filter(function(p){ return !isMockPlayer(p.name || p.username); });
     saveLeaderboard(list);
   }
   return list;
@@ -4100,20 +4135,12 @@ let leaderboard = loadLeaderboard();
 // ============================================================
 // PONTUACAO DA TEMPORADA - 1 ponto a cada 1000 moedas
 // ------------------------------------------------------------
-// Antes: score = coins + (level-1)*100, o que gerava numeros enormes
-// (2285, 1645...). Agora o ranking fica limpo: cada 1000 moedas
-// RECOLHIDAS valem 1 ponto, e o que sobrar fica guardado pra proxima
-// partida (ex: terminar com 1700 = +1 ponto e 700 acumuladas; na
-// partida seguinte, mais 300 ja fecham o proximo ponto).
+// Cada 1000 moedas recolhidas valem 1 ponto de temporada.
 // ============================================================
 const COINS_PER_SEASON_POINT = 1000;
 const COIN_REMAINDER_KEY = 'rb_coin_remainder_v1';
 const SEASON_POINTS_KEY = 'rb_season_points_v1';
 
-// RESET DA TEMPORADA: o ranking foi zerado no servidor ao trocar para o
-// sistema de "1 ponto a cada 1000 moedas". Sem isto, o valor antigo (inflado)
-// que ficou guardado no navegador de cada jogador voltaria pro ranking na
-// primeira partida. Roda UMA VEZ por aparelho e nunca mais.
 const SEASON_RESET_FLAG_KEY = 'rb_season_reset_1000coins_done';
 (function resetLocalSeasonDataOnce(){
   try{
@@ -4143,9 +4170,6 @@ function saveSeasonPoints(v){
   try{ localStorage.setItem(SEASON_POINTS_KEY, String(v)); }catch(e){ /* localStorage indisponivel */ }
 }
 
-// Converte as moedas da partida que acabou em pontos de temporada,
-// somando ao que tinha sobrado de partidas anteriores. Devolve quantos
-// pontos foram ganhos AGORA e quanto sobrou pro proximo jogo.
 function convertCoinsToSeasonPoints(coinsThisMatch){
   const pool = loadCoinRemainder() + Math.max(0, coinsThisMatch||0);
   const pointsEarned = Math.floor(pool / COINS_PER_SEASON_POINT);
@@ -4155,17 +4179,12 @@ function convertCoinsToSeasonPoints(coinsThisMatch){
   return { pointsEarned: pointsEarned, remainder: remainder, total: loadSeasonPoints() };
 }
 
-// A pontuacao enviada ao ranking e o TOTAL acumulado de pontos do jogador
-// (nao o resultado de uma partida isolada).
 function computeFinalScore(){
   return loadSeasonPoints();
 }
 
 let seasonLeaderboardCache = [];
 
-// Busca o ranking de temporada COMPARTILHADO (todos os jogadores) do
-// Supabase - substitui a lista local antiga, que so existia no seu proprio
-// aparelho. Chamada ao abrir o painel de Ranking e apos enviar uma pontuacao.
 async function fetchSeasonLeaderboardFromSupabase(){
   if(!supabaseConfigured) return;
   const { data, error } = await supabaseClient
@@ -4174,13 +4193,10 @@ async function fetchSeasonLeaderboardFromSupabase(){
     .order('score', { ascending: false })
     .limit(50);
   if(error){ console.warn('[Ranking] falha ao buscar o ranking:', error.message); return; }
-  seasonLeaderboardCache = data || [];
+  seasonLeaderboardCache = (data || []).filter(function(p){ return !isMockPlayer(p.username); });
   renderLeaderboardPanel();
 }
 
-// Envia a pontuacao para o Supabase - so grava se for um novo recorde
-// PESSOAL (evita sobrescrever com pontuacao menor). "Fire and forget": nao
-// trava a tela de resultado esperando a rede.
 async function submitScoreToSupabase(score){
   if(!supabaseConfigured || !currentUserId) return;
   const { data: existing } = await supabaseClient.from('season_scores').select('score').eq('user_id', currentUserId).maybeSingle();
@@ -4193,11 +4209,9 @@ async function submitScoreToSupabase(score){
   fetchSeasonLeaderboardFromSupabase();
 }
 
-// Envia (localmente, nesta demo) a maior pontuacao do jogador para o ranking.
-// So registra se for um novo recorde pessoal, evitando poluir a lista.
 function submitScore(score){
   if(supabaseConfigured && currentUserId){
-    submitScoreToSupabase(score); // assincrono, nao trava a tela de resultado
+    submitScoreToSupabase(score);
     return true;
   }
   let best = 0;
@@ -4210,6 +4224,7 @@ function submitScore(score){
   if(idx >= 0) leaderboard[idx] = entry;
   else leaderboard.push(entry);
 
+  leaderboard = leaderboard.filter(function(p){ return !isMockPlayer(p.name); });
   leaderboard.sort(function(a,b){ return b.score - a.score; });
   leaderboard = leaderboard.slice(0, 50);
   saveLeaderboard(leaderboard);
@@ -4225,7 +4240,6 @@ function getPlayerRank(){
   return idx >= 0 ? (idx+1) : null;
 }
 
-// Meta Nivel 1 (ate R$300): TOP 10 + 1 sorteado. Meta Nivel 2 (R$600+): TOP 20 + 2 sorteados.
 function getPrizeTierInfo(){
   if(seasonPrizePool >= PRIZE_POOL_TIER2){
     return { tier:2, label:'TOP 20 + 2 Sorteados', topCount:20 };
@@ -4242,7 +4256,8 @@ function renderLeaderboardPanel(){
   const tier1Pct = (PRIZE_POOL_TIER1 / PRIZE_POOL_TIER2) * 100;
 
   const usingSupabase = supabaseConfigured && currentUserId;
-  const sourceList = usingSupabase ? seasonLeaderboardCache : leaderboard;
+  const rawList = usingSupabase ? seasonLeaderboardCache : leaderboard;
+  const sourceList = (rawList || []).filter(function(p){ return !isMockPlayer(p.username || p.name); });
   const myKey = usingSupabase ? playerUsername : playerName;
 
   const rows = sourceList.slice(0, tierInfo.topCount).map(function(p, i){
@@ -4262,15 +4277,14 @@ function renderLeaderboardPanel(){
       '<div class="lb-pool-bar" style="width:' + pct + '%;"></div>' +
       '<div class="lb-pool-marker" style="left:' + tier1Pct + '%;" title="Meta 1: R$300"></div>' +
     '</div>' +
-    '<div class="daily-milestone">Pool da temporada: R$ ' + seasonPrizePool.toFixed(2) +
-      ' &mdash; premiacao ativa: ' + tierInfo.label + '</div>' +
+    '<div class="daily-milestone">Pool Inicial da Temporada: <b>R$ ' + seasonPrizePool.toFixed(2).replace('.', ',') +
+      '</b> &mdash; Premia&ccedil;&atilde;o Ativa: ' + tierInfo.label + '</div>' +
+    '<div class="daily-milestone" style="color:#5ee6ff;font-size:11px;">\u{1F3C6} Temporada Ranked 40 Dias &bull; Pr&ecirc;mio R$ 100+ ao TOP 1</div>' +
     (usingSupabase
       ? '<div class="daily-milestone">Jogando como <b>' + escapeHtml(playerUsername || '') + '</b></div>'
       : '') +
-    '<div class="lb-list">' + (rows || '<div class="daily-milestone">Nenhuma pontuacao registrada ainda.</div>') + '</div>';
+    '<div class="lb-list">' + (rows || '<div class="daily-milestone">Nenhuma pontua&ccedil;&atilde;o registrada ainda.</div>') + '</div>';
 
-  // Busca o ranking compartilhado do Supabase na primeira vez que o painel
-  // abre (o cache comeca vazio) - re-renderiza sozinho quando a resposta chegar.
   if(usingSupabase && seasonLeaderboardCache.length === 0){
     fetchSeasonLeaderboardFromSupabase();
   }
@@ -4297,7 +4311,9 @@ const RANK_MODES = [
 // Passes SEPARADOS por modo - cada um e comprado individualmente
 const SURVIVAL_PASS_KEY = 'rb_survival_pass_v1'; // armazena timestamp de expiracao
 const PVP_PASS_KEY      = 'rb_pvp_pass_v1';      // armazena timestamp de expiracao
-const DAILY_RESET_HOUR = 21; // corte do ciclo: 21h todos os dias
+const WEEKLY_RESET_HOUR = 21; // corte do ciclo semanal: 21h aos domingos
+const WEEKLY_RESET_DAY = 0;   // 0 = Domingo
+const DAILY_RESET_HOUR = WEEKLY_RESET_HOUR; // alias para compatibilidade
 const DAILY_RANK_KEY_PREFIX = 'rb_daily_rank_v2_';
 const DAILY_TITLES_KEY = 'rb_daily_titles_v2';
 const DAILY_HISTORY_KEY = 'rb_daily_history_v2';
@@ -4311,37 +4327,53 @@ let selectedRankMode = 'survival';
 
 // Nome usado para identificar o jogador no Ranking Semanal - o apelido da
 // conta (Supabase) quando logado, ou o nome local antigo como fallback
-// offline. BUG CORRIGIDO: o modulo de ranking usava "playerName" (o nome
-// local antigo) direto em todo lugar, mesmo com conta logada - por isso os
-// pontos eram creditados num nome generico, nao no apelido real da conta.
+// offline.
 function getMyRankName(){
   return (supabaseConfigured && currentUserId && playerUsername) ? playerUsername : playerName;
 }
 
-// "Dia do ciclo": partidas depois das 21h pertencem ao ciclo que fecha no
-// PROXIMO corte de 21h (nao ao dia civil corrente). Formato: 'YYYY-MM-DD'.
-function getCycleDateKey(date){
+// Timestamp exato em ms do encerramento do ciclo semanal (sempre no DOMINGO AS 21:00h).
+// Cria um loop semanal continuo: encerra num domingo as 21h e imediatamente inicia o novo ciclo ate o proximo domingo as 21h.
+function getNextWeeklyResetTimestamp(date){
   const d = new Date((date || new Date()).getTime());
-  if(d.getHours() >= DAILY_RESET_HOUR) d.setDate(d.getDate()+1);
+  const day = d.getDay();
+  const target = new Date(d);
+
+  if(day === WEEKLY_RESET_DAY){
+    target.setHours(WEEKLY_RESET_HOUR, 0, 0, 0);
+    if(d.getTime() >= target.getTime()){
+      target.setDate(target.getDate() + 7);
+    }
+  } else {
+    const daysUntilSunday = 7 - day;
+    target.setDate(target.getDate() + daysUntilSunday);
+    target.setHours(WEEKLY_RESET_HOUR, 0, 0, 0);
+  }
+  return target.getTime();
+}
+
+// "Dia do ciclo": partidas pertencem ao ciclo semanal que encerra no proximo corte de domingo as 21h. Formato: 'YYYY-MM-DD'.
+function getCycleDateKey(date){
+  const endMs = getNextWeeklyResetTimestamp(date);
+  const d = new Date(endMs);
   const pad = function(n){ return n<10 ? '0'+n : ''+n; };
   return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
 }
 
-// "Dia do ciclo anterior": ciclo de 24h imediatamente anterior ao ciclo ativo,
-// cujo ganhador fica em exibicao durante todas as 24h do ciclo seguinte.
+// "Ciclo anterior": ciclo semanal encerrado no domingo anterior as 21h,
+// cujo ganhador fica fixado durante toda a semana atual ate a virada de domingo as 21h.
 function getPreviousCycleDateKey(date){
-  const curCycleKey = getCycleDateKey(date);
-  const parts = curCycleKey.split('-').map(Number);
-  const d = new Date(parts[0], parts[1]-1, parts[2]);
-  d.setDate(d.getDate() - 1);
+  const endMs = getNextWeeklyResetTimestamp(date) - (7 * 24 * 60 * 60 * 1000);
+  const d = new Date(endMs);
   const pad = function(n){ return n<10 ? '0'+n : ''+n; };
   return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
 }
 
-// timestamp exato (ms) em que o ciclo identificado por cycleDateKey fecha (21h daquele dia)
+// timestamp exato (ms) em que o ciclo semanal fecha (domingo as 21h)
 function getCycleEndTimestamp(cycleDateKey){
+  if(!cycleDateKey) return getNextWeeklyResetTimestamp();
   const parts = cycleDateKey.split('-').map(Number);
-  return new Date(parts[0], parts[1]-1, parts[2], DAILY_RESET_HOUR, 0, 0, 0).getTime();
+  return new Date(parts[0], parts[1]-1, parts[2], WEEKLY_RESET_HOUR, 0, 0, 0).getTime();
 }
 
 // Passes SEPARADOS por modo: 'survival' e 'pvp', cada um com validade de 7 dias.
@@ -4420,24 +4452,33 @@ function appendDailyHistory(mode, points){
   saveDailyHistory(hist);
 }
 
-// "Ultimo Campeao" de cada modo (TOP 1 do ciclo mais recente ja fechado) -
-// so um titulo cosmetico de reconhecimento, sem nenhum valor associado.
+// "Ultimo Campeao" de cada modo (TOP 1 do ciclo semanal mais recente ja fechado) -
+// fixado durante toda a semana seguinte ate a virada de domingo as 21h.
 function loadLastChampions(){
   let obj = null;
   try{ obj = JSON.parse(localStorage.getItem(LAST_CHAMPIONS_KEY)); }catch(e){ obj = null; }
-  return (obj && typeof obj==='object') ? obj : {};
+  obj = (obj && typeof obj==='object') ? obj : {};
+  ['survival','pvp'].forEach(function(m){
+    if(obj[m] && isMockPlayer(obj[m])){
+      delete obj[m];
+    }
+  });
+  return obj;
 }
 function saveLastChampion(mode, name){
+  if(!name || isMockPlayer(name)) return;
   const obj = loadLastChampions();
   obj[mode] = name;
   try{ localStorage.setItem(LAST_CHAMPIONS_KEY, JSON.stringify(obj)); }catch(e){ /* localStorage indisponivel */ }
 }
 
 // Fecha o ciclo anterior: define o TOP 3 (titulo cosmetico) e registra o
-// TOP 1 como "Ultimo Campeao" do modo, exibido em destaque no menu.
+// TOP 1 como "Ultimo Campeao" do modo, exibido em destaque no menu durante a semana seguinte.
 function archiveDailyCycleAndAwardBadges(mode, closedData){
   if(!closedData || !closedData.players || !closedData.players.length) return;
-  const sorted = closedData.players.slice().sort(function(a,b){ return b.points - a.points; });
+  const filtered = closedData.players.filter(function(p){ return !isMockPlayer(p.name); });
+  if(!filtered.length) return;
+  const sorted = filtered.slice().sort(function(a,b){ return b.points - a.points; });
   const badgeNames = ['campeao','vice','terceiro'];
   const titles = loadDailyTitles();
   let changed = false;
@@ -4452,10 +4493,8 @@ function archiveDailyCycleAndAwardBadges(mode, closedData){
 }
 
 // Le o ranking ao vivo do MODO, fechando e arquivando automaticamente o
-// ciclo anterior (com titulo cosmetico) se o corte de 21h ja passou. Comeca
-// VAZIO a cada ciclo novo - o Ranking Semanal e so de jogadores REAIS que
-// pontuarem (os bots continuam ativos nas partidas normalmente, so nao
-// aparecem/contam aqui).
+// ciclo semanal anterior (com titulo cosmetico) se o corte de domingo 21h ja passou. Comeca
+// VAZIO a cada ciclo semanal novo - o Ranking Semanal e so de jogadores REAIS que pontuarem.
 function loadDailyRank(mode){
   const key = DAILY_RANK_KEY_PREFIX + mode;
   let data = null;
@@ -4466,6 +4505,8 @@ function loadDailyRank(mode){
     if(data && data.cycleDate) archiveDailyCycleAndAwardBadges(mode, data);
     data = { cycleDate: currentCycle, players: [] };
     try{ localStorage.setItem(key, JSON.stringify(data)); }catch(e){ /* localStorage indisponivel */ }
+  } else if(data && Array.isArray(data.players)){
+    data.players = data.players.filter(function(p){ return !isMockPlayer(p.name); });
   }
   return data;
 }
@@ -4475,9 +4516,6 @@ function saveDailyRank(mode, data){
 
 // ============================================================
 // RANKING Semanal COMPARTILHADO (Supabase)
-// O localStorage acima continua servindo de cache/fallback offline, mas
-// quando ha conta logada o ranking REAL vem do banco - antes cada aparelho
-// tinha o proprio ranking isolado, e um jogador nunca via o outro.
 // ============================================================
 const sharedDailyRankCache = { survival: null, pvp: null };
 const previousDailyWinnersCache = { survival: null, pvp: null, cycleDate: null, lastFetchedCycle: null };
@@ -4493,9 +4531,11 @@ function fetchDailyRankFromSupabase(mode){
     .limit(50)
     .then(function(res){
       if(res.error){ console.warn('[Ranking Semanal] falha ao buscar:', res.error.message); return null; }
-      sharedDailyRankCache[mode] = (res.data||[]).map(function(r){
-        return { name:r.username, points:r.points, matches:r.matches, bestPlacement:r.best_placement };
-      });
+      sharedDailyRankCache[mode] = (res.data||[])
+        .filter(function(r){ return !isMockPlayer(r.username); })
+        .map(function(r){
+          return { name:r.username, points:r.points, matches:r.matches, bestPlacement:r.best_placement };
+        });
       return sharedDailyRankCache[mode];
     });
 }
@@ -4510,7 +4550,7 @@ function fetchPreviousCycleWinnersFromSupabase(){
     .order('points', { ascending: false })
     .then(function(res){
       if(res.error){ console.warn('[Vencedor Anterior] falha ao buscar:', res.error.message); return null; }
-      const rows = res.data || [];
+      const rows = (res.data || []).filter(function(r){ return !isMockPlayer(r.username); });
       const survivalWinner = rows.find(function(r){ return r.mode === 'survival'; }) || null;
       const pvpWinner = rows.find(function(r){ return r.mode === 'pvp'; }) || null;
       previousDailyWinnersCache.survival = survivalWinner;
@@ -4638,10 +4678,14 @@ function awardDailyRankPoints(mode, placement){
 function formatCountdown(ms){
   if(ms <= 0) return '00:00:00';
   const total = Math.floor(ms/1000);
-  const hh = Math.floor(total/3600);
+  const days = Math.floor(total/86400);
+  const hh = Math.floor((total%86400)/3600);
   const mm = Math.floor((total%3600)/60);
   const ss = total%60;
   const pad = function(n){ return n<10 ? '0'+n : ''+n; };
+  if(days > 0){
+    return days + 'd ' + pad(hh) + 'h ' + pad(mm) + 'm ' + pad(ss) + 's';
+  }
   return pad(hh)+':'+pad(mm)+':'+pad(ss);
 }
 
@@ -4652,16 +4696,37 @@ function renderRankBoardHtml(mode){
   const data = loadDailyRank(mode);
   // usa o ranking COMPARTILHADO (Supabase) quando disponivel; o local so
   // aparece como fallback (offline / sem conta logada)
-  const players = (sharedDailyRankCache[mode] !== null) ? sharedDailyRankCache[mode] : data.players;
+  const rawPlayers = (sharedDailyRankCache[mode] !== null) ? sharedDailyRankCache[mode] : data.players;
+  const players = (rawPlayers || []).filter(function(p){ return !isMockPlayer(p.name || p.username); });
   const sorted = players.slice().sort(function(a,b){ return b.points-a.points; });
   const myEntry = sorted.find(function(p){ return p.name===myName; });
   const myRank = myEntry ? sorted.indexOf(myEntry)+1 : null;
   const cycleEndsAt = getCycleEndTimestamp(data.cycleDate);
   const isFree = isFreeEventActive();
 
+  const msRemaining = Math.max(0, cycleEndsAt - Date.now());
   const countdownText = isFree
     ? '\u23F3 Evento Especial Encerra em ' + formatCountdown(getFreeEventTimeRemainingMs()) + ' (30/08 as 21h)'
-    : '\u23F1\uFE0F Ciclo Semanal Encerra em ' + formatCountdown(cycleEndsAt - Date.now()) + ' (21h)';
+    : '\u23F1\uFE0F Ciclo Semanal Encerra em ' + formatCountdown(msRemaining) + ' (Domingo às 21h)';
+
+  const lastChamps = loadLastChampions();
+  const prevSurv = previousDailyWinnersCache.survival;
+  const prevPvp = previousDailyWinnersCache.pvp;
+  const modeWinnerName = (mode === 'survival' && prevSurv && prevSurv.username && !isMockPlayer(prevSurv.username))
+    ? prevSurv.username
+    : ((mode === 'pvp' && prevPvp && prevPvp.username && !isMockPlayer(prevPvp.username))
+      ? prevPvp.username
+      : (lastChamps[mode] || null));
+
+  const prevWinnerBadgeHtml = modeWinnerName
+    ? '<div class="rank-prev-winner-badge" style="background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.3);border-radius:6px;padding:6px 10px;margin:6px 0 8px 0;font-size:11px;display:flex;align-items:center;justify-content:space-between;">' +
+        '<span style="color:#a89bb9;">\u{1F451} Vencedor da Semana Anterior:</span>' +
+        '<span style="color:#ffd700;font-weight:bold;">\u{1F947} ' + escapeHtml(modeWinnerName) + '</span>' +
+      '</div>'
+    : '<div class="rank-prev-winner-badge" style="background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.15);border-radius:6px;padding:6px 10px;margin:6px 0 8px 0;font-size:11px;display:flex;align-items:center;justify-content:space-between;">' +
+        '<span style="color:#a89bb9;">\u{1F451} Vencedor da Semana Anterior:</span>' +
+        '<span style="color:#8e82a0;font-style:italic;">Disputa da semana em andamento</span>' +
+      '</div>';
 
   const cycleParts = (data.cycleDate || '').split('-');
   const cycleDateDisplay = cycleParts.length === 3 ? (cycleParts[2] + '/' + cycleParts[1]) : 'hoje';
@@ -4696,9 +4761,10 @@ function renderRankBoardHtml(mode){
 
   return '<div class="rank-board">' +
     '<div class="rank-board-title">' + modeInfo.icon + ' Ranking ' + modeInfo.name + '</div>' +
+    prevWinnerBadgeHtml +
     prizeCardHtml +
     '<div class="rank-countdown">' + countdownText + '</div>' +
-    '<div class="lb-list">' + (rowsHtml || '<div class="daily-milestone">Nenhuma pontuacao ainda hoje.</div>') + myRowExtra + '</div>' +
+    '<div class="lb-list">' + (rowsHtml || '<div class="daily-milestone">Nenhuma pontuacao ainda esta semana.</div>') + myRowExtra + '</div>' +
     (myEntry ? '<div class="rank-my-stats"><span>Sua posicao: #' + (myRank||'-') + '</span><span>' + myEntry.points + ' pts</span></div>' : '') +
   '</div>';
 }
@@ -4711,62 +4777,46 @@ function renderDailyRankPanel(){
   const hasPass = hasActiveDailyPass();
   const titles = loadDailyTitles();
 
-  const prevCycleKey = getPreviousCycleDateKey();
-  const prevCycleDisplay = (function(key){
-    if(!key) return '';
-    const p = key.split('-');
-    return p[2] + '/' + p[1];
-  })(prevCycleKey);
-
   const prevSurv = previousDailyWinnersCache.survival;
   const prevPvp = previousDailyWinnersCache.pvp;
+  const lastChamps = loadLastChampions();
 
-  let previousWinnerHtml = '';
-  if(prevSurv || prevPvp){
-    let survHtml = '';
-    if(prevSurv){
-      survHtml =
-        '<div class="winner-mode-row">' +
-          '<div class="winner-mode-info">' +
-            '<span class="winner-mode-label">\u2620\uFE0F Sobrevivência (Prêmio TOP 1)</span>' +
-            '<span class="winner-user-name">\u{1F947} ' + escapeHtml(prevSurv.username) + '</span>' +
-          '</div>' +
-          '<div class="winner-user-score">' +
-            '<span class="winner-prize-tag">\u{1F4B0} R$ 9,20 líq. em $RBA</span>' +
-            '<span class="winner-points">' + prevSurv.points + ' pts (' + prevSurv.matches + ' part.)</span>' +
-          '</div>' +
-        '</div>';
-    }
-    let pvpHtml = '';
-    if(prevPvp){
-      pvpHtml =
-        '<div class="winner-mode-row">' +
-          '<div class="winner-mode-info">' +
-            '<span class="winner-mode-label">\u2694\uFE0F Arena PvP</span>' +
-            '<span class="winner-user-name">\u{1F947} ' + escapeHtml(prevPvp.username) + '</span>' +
-          '</div>' +
-          '<div class="winner-user-score">' +
-            '<span class="winner-points">' + prevPvp.points + ' pts (' + prevPvp.matches + ' part.)</span>' +
-          '</div>' +
-        '</div>';
-    }
+  const survWinnerName = (prevSurv && prevSurv.username && !isMockPlayer(prevSurv.username)) ? prevSurv.username : (lastChamps.survival || null);
+  const pvpWinnerName = (prevPvp && prevPvp.username && !isMockPlayer(prevPvp.username)) ? prevPvp.username : (lastChamps.pvp || null);
 
-    previousWinnerHtml =
-      '<div class="previous-winner-card">' +
-        '<div class="previous-winner-header">' +
-          '<span class="previous-winner-title">\u{1F451} Vencedor do Ciclo Anterior (' + prevCycleDisplay + ')</span>' +
-          '<span class="previous-winner-badge">Exibição 24h</span>' +
+  const previousWinnerHtml =
+    '<div class="previous-winner-card" style="background:linear-gradient(135deg,rgba(40,25,60,0.85),rgba(20,15,35,0.95));border:1px solid rgba(255,215,0,0.35);border-radius:10px;padding:12px;margin:10px 0 14px 0;box-shadow:0 4px 15px rgba(0,0,0,0.4);">' +
+      '<div class="previous-winner-header" style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,215,0,0.2);padding-bottom:8px;margin-bottom:10px;">' +
+        '<span class="previous-winner-title" style="color:#ffd700;font-size:13px;font-weight:bold;display:flex;align-items:center;gap:6px;">\u{1F451} Vencedores da Semana Anterior</span>' +
+        '<span class="previous-winner-badge" style="font-size:10px;color:#a89bb9;background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:12px;">Fixado at&eacute; Domingo &agrave;s 21:00h</span>' +
+      '</div>' +
+      '<div class="previous-winner-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">' +
+        '<div class="winner-mode-box" style="background:rgba(255,255,255,0.04);border:1px solid rgba(160,107,255,0.25);border-radius:8px;padding:10px;">' +
+          '<div style="font-size:11px;color:#a89bb9;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">\u2620\uFE0F Sobreviv&ecirc;ncia Semanal</div>' +
+          (survWinnerName
+            ? '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+                '<span style="font-size:13px;font-weight:bold;color:#ffd700;">\u{1F947} ' + escapeHtml(survWinnerName) + '</span>' +
+                (prevSurv && prevSurv.points ? '<span style="font-size:11px;color:#5ee6ff;background:rgba(94,230,255,0.1);padding:2px 6px;border-radius:4px;">' + prevSurv.points + ' pts</span>' : '') +
+              '</div>' +
+              '<div style="font-size:10px;color:#8e82a0;margin-top:4px;">Campe&atilde;o fixado durante toda a semana atual</div>'
+            : '<div style="font-size:12px;color:#8e82a0;font-style:italic;">Disputa em andamento para o 1&ordm; campe&atilde;o</div>') +
         '</div>' +
-        '<div class="previous-winner-grid">' +
-          survHtml +
-          pvpHtml +
+        '<div class="winner-mode-box" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,90,90,0.25);border-radius:8px;padding:10px;">' +
+          '<div style="font-size:11px;color:#a89bb9;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">\u2694\uFE0F Arena PvP Semanal</div>' +
+          (pvpWinnerName
+            ? '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+                '<span style="font-size:13px;font-weight:bold;color:#ffd700;">\u{1F947} ' + escapeHtml(pvpWinnerName) + '</span>' +
+                (prevPvp && prevPvp.points ? '<span style="font-size:11px;color:#5ee6ff;background:rgba(94,230,255,0.1);padding:2px 6px;border-radius:4px;">' + prevPvp.points + ' pts</span>' : '') +
+              '</div>' +
+              '<div style="font-size:10px;color:#8e82a0;margin-top:4px;">Campe&atilde;o fixado durante toda a semana atual</div>'
+            : '<div style="font-size:12px;color:#8e82a0;font-style:italic;">Disputa em andamento para o 1&ordm; campe&atilde;o</div>') +
         '</div>' +
-        '<div class="previous-winner-footer">' +
-          '<span>\u{1F3C6} Encerrado às 21h de ' + prevCycleDisplay + '</span>' +
-          '<span>\u23F3 Próximo campeão hoje às 21h</span>' +
-        '</div>' +
-      '</div>';
-  }
+      '</div>' +
+      '<div class="previous-winner-footer" style="display:flex;justify-content:space-between;margin-top:8px;font-size:10px;color:#8e82a0;">' +
+        '<span>\u{1F3C6} Encerrado no domingo anterior &agrave;s 21h</span>' +
+        '<span>\u23F3 Pr&oacute;xima virada: Domingo &agrave;s 21:00h</span>' +
+      '</div>' +
+    '</div>';
 
   const myTitlesHtml = titles.length
     ? '<div class="rank-titles">' + titles.slice(-6).map(function(t){
@@ -4803,7 +4853,7 @@ function renderDailyRankPanel(){
       '</div>';
 
   el.innerHTML =
-    '<div class="daily-title">\u{1F3C6} Rankings Semanals' + (isFree ? ' &bull; <span style="color:#5ee6ff;font-size:11px;">Passe Livre Liberado</span>' : '') + '</div>' +
+    '<div class="daily-title">\u{1F3C6} Rankings Semanais' + (isFree ? ' &bull; <span style="color:#5ee6ff;font-size:11px;">Passe Livre Liberado</span>' : '') + '</div>' +
     previousWinnerHtml +
     myTitlesHtml +
     passRowHtml +
@@ -6117,17 +6167,10 @@ function saveEquipped(e){
   try{ localStorage.setItem(EQUIPPED_KEY, JSON.stringify(e)); }catch(e2){ /* localStorage indisponivel */ }
 }
 
-// Compra um item com moedas (ja acumuladas jogando a Campanha).
+// Compra de itens temporariamente suspensa para manutencao da loja
 function buyEquipmentItem(itemId){
-  const item = EQUIPMENT_ITEMS.find(function(it){ return it.id===itemId; });
-  if(!item || ownsItem(itemId)) return false;
-  if(walletGold < item.price) return false;
-  walletGold -= item.price;
-  saveCoinsToStorage();
-  const inv = loadInventory();
-  inv.push(itemId);
-  saveInventory(inv);
-  return true;
+  logStatus('Loja de Equipamentos em Manutenção / Brevemente Disponível', 4000);
+  return false;
 }
 
 function toggleEquipItem(itemId){
@@ -6178,19 +6221,19 @@ function renderEquipmentPanel(){
 
   function passCard(mode, hasPas){
     const isPvp    = mode === 'pvp';
-    const lbl      = isPvp ? 'PvP 1x1' : 'Sobrevivencia';
+    const lbl      = isPvp ? 'PvP 1x1' : 'Sobrevivência';
     const icon     = isPvp ? '&#9876;&#65039;' : '&#9760;&#65039;';
     const pricePOL = isPvp ? PVP_PASS_PRICE_POL : SURVIVAL_PASS_PRICE_POL;
     const priceUSD = isPvp ? PVP_PASS_PRICE_USD  : SURVIVAL_PASS_PRICE_USD;
     let actionHtml;
     if(isFree){
-      actionHtml = '<span class="rank-pass-status" style="color:#5ee6ff;font-weight:bold;">&#127881; Evento Gratis</span>';
+      actionHtml = '<span class="rank-pass-status" style="color:#5ee6ff;font-weight:bold;">&#127881; Evento Grátis</span>';
     } else if(hasPas){
       const expiresAt = loadModePassExpiry(mode);
       const daysLeft  = Math.max(0, Math.ceil((expiresAt - Date.now()) / (24*60*60*1000)));
       actionHtml = '<span class="rank-pass-status">&#10003; Ativo (' + daysLeft + ' dia(s))</span>';
     } else {
-      actionHtml = '<button class="polygon-pay-btn buy-pass-poly-btn" data-mode="' + mode + '" style="flex:1;min-width:200px;"><span class="poly-icon"></span> ' + pricePOL.toFixed(0) + ' POL / $' + priceUSD.toFixed(2) + ' USD</button>';
+      actionHtml = '<button class="polygon-pay-btn buy-pass-poly-btn" data-mode="' + mode + '" style="flex:1;min-width:200px;"><span class="poly-icon"></span> Comprar Passe (' + pricePOL.toFixed(0) + ' POL / $' + priceUSD.toFixed(2) + ' USD)</button>';
     }
     return '<div class="equip-item-row" style="flex-wrap:wrap;gap:8px;">' +
       '<span class="equip-item-info" style="flex:1 1 60%;">' +
@@ -6201,7 +6244,26 @@ function renderEquipmentPanel(){
     '</div>';
   }
 
-  const passHtml = passCard('survival', hasSurvPass) + passCard('pvp', hasPvpPass);
+  function vipCard(){
+    let actionHtml;
+    if(isFree){
+      actionHtml = '<span class="rank-pass-status" style="color:#5ee6ff;font-weight:bold;">&#127881; VIP Grátis (Evento)</span>';
+    } else if(isVip){
+      const daysLeft = Math.max(0, Math.ceil((vipState.expiresAt - Date.now()) / (24*60*60*1000)));
+      actionHtml = '<span class="rank-pass-status">&#10003; VIP Ativo (' + daysLeft + ' dia(s))</span>';
+    } else {
+      actionHtml = '<button id="buyVipShopPolyBtn" class="polygon-pay-btn" style="flex:1;min-width:200px;"><span class="poly-icon"></span> Assinar VIP (' + VIP_PRICE_POL.toFixed(0) + ' POL / $' + VIP_PRICE_USD.toFixed(2) + ' USD)</button>';
+    }
+    return '<div class="equip-item-row" style="flex-wrap:wrap;gap:8px;">' +
+      '<span class="equip-item-info" style="flex:1 1 60%;">' +
+        '<b>&#128081; Assinatura VIP</b><br>' +
+        '<small>Partidas ilimitadas sem cooldown na Campanha, Sobrevivência e PvP &bull; <b>$' + VIP_PRICE_USD.toFixed(2) + ' USD (~' + VIP_PRICE_POL.toFixed(0) + ' POL)</b> &bull; ' + VIP_DURATION_DAYS + ' dias</small>' +
+      '</span>' +
+      actionHtml +
+    '</div>';
+  }
+
+  const passHtml = passCard('survival', hasSurvPass) + passCard('pvp', hasPvpPass) + vipCard();
 
   const byChar = {};
   EQUIPMENT_ITEMS.forEach(function(it){ (byChar[it.character] = byChar[it.character]||[]).push(it); });
@@ -6213,11 +6275,11 @@ function renderEquipmentPanel(){
       const equipped = (loadEquipped()[charKey]||[]).indexOf(it.id) !== -1;
       let actionHtml;
       if(!owned){
-        actionHtml = '<button class="daily-btn buy-item-btn" data-item="' + it.id + '"' + (walletGold<it.price?' disabled':'') + '>' + it.price + ' \u{1FA99}</button>';
+        actionHtml = '<button class="daily-btn" disabled style="opacity:0.45;cursor:not-allowed;background:#3a3642;border-color:#555;" title="Loja de Equipamentos em Manutenção">Indisponível</button>';
       } else {
         actionHtml = '<button class="daily-btn equip-item-btn' + (equipped?' equipped':'') + '" data-item="' + it.id + '">' + (equipped?'Equipado':'Equipar') + '</button>';
       }
-      return '<div class="equip-item-row">' +
+      return '<div class="equip-item-row" style="' + (!owned ? 'opacity:0.7;' : '') + '">' +
         '<span class="equip-item-icon">' + it.icon + '</span>' +
         '<span class="equip-item-info"><b>' + it.name + '</b> <span class="equip-tier-' + it.tier + '">' + it.tier + '</span><br><small>' + it.desc + '</small></span>' +
         actionHtml +
@@ -6230,12 +6292,15 @@ function renderEquipmentPanel(){
   }).join('');
 
   el.innerHTML =
-    '<div class="daily-title">\u{1F3AB} Passes de Batalha</div>' +
-    '<div class="daily-milestone">Cada passe e <b>exclusivo do seu modo</b> e vale por ' + PASS_DURATION_DAYS + ' dias. Compre apenas o que precisa jogar. Para jogar os dois modos, compre os dois passes separadamente.</div>' +
+    '<div class="daily-title">&#127915; Passes de Batalha &amp; Assinatura VIP</div>' +
+    '<div class="daily-milestone">Produtos disponíveis para compra: Passes exclusivos por modo (' + PASS_DURATION_DAYS + ' dias) e Assinatura VIP (' + VIP_DURATION_DAYS + ' dias).</div>' +
     '<div class="equip-list">' + passHtml + '</div>' +
-    '<div class="daily-title" style="margin-top:12px;">\u{1F6D2} Loja de Equipamentos</div>' +
-    '<div class="daily-milestone">Sua carteira: <b>' + walletGold + ' \u{1FA99}</b> (ganhe jogando a Campanha)</div>' +
-    '<div class="daily-milestone">\u2694\uFE0F Os bonus valem apenas na <b>Campanha</b>. No PvP e na Sobrevivencia os itens aparecem no seu personagem, mas <b>sem vantagem</b> - a arena e 100% habilidade.</div>' +
+    '<div class="daily-title" style="margin-top:16px;">&#128722; Loja de Equipamentos</div>' +
+    '<div style="background:linear-gradient(135deg,rgba(255,160,0,0.14),rgba(200,100,0,0.18));border:1px solid rgba(255,190,0,0.6);border-radius:8px;padding:12px;margin:8px 0 12px 0;text-align:center;">' +
+      '<div style="color:#ffd700;font-size:13px;font-weight:bold;margin-bottom:4px;">&#9888;&#65039; Loja de Equipamentos em Manutenção / Brevemente Disponível</div>' +
+      '<div style="color:#ccc;font-size:11px;">A compra de novos equipamentos e itens com moedas está temporariamente desativada. Itens já adquiridos continuam disponíveis no inventário para equipar.</div>' +
+    '</div>' +
+    '<div class="daily-milestone">Sua carteira: <b>' + walletGold + ' &#129689;</b></div>' +
     '<div class="equip-list">' + rows + '</div>';
 
   el.querySelectorAll('.buy-pass-poly-btn').forEach(function(btn){
@@ -6251,11 +6316,21 @@ function renderEquipmentPanel(){
     });
   });
 
-  el.querySelectorAll('.buy-item-btn').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      if(buyEquipmentItem(btn.getAttribute('data-item'))) renderEquipmentPanel();
+  const vipShopBtn = el.querySelector('#buyVipShopPolyBtn');
+  if(vipShopBtn){
+    vipShopBtn.addEventListener('click', function(){
+      PolygonWalletManager.executePayment({
+        title: 'Assinatura VIP 30 Dias',
+        pricePOL: VIP_PRICE_POL,
+        onSuccess: function(tx){
+          activateVipReal(tx);
+          renderEquipmentPanel();
+          renderMatchPanel();
+        }
+      });
     });
-  });
+  }
+
   el.querySelectorAll('.equip-item-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
       toggleEquipItem(btn.getAttribute('data-item'));
