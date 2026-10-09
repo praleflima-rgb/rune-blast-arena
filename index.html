@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -371,7 +371,7 @@
     padding:6px 8px;font-size:12px;font-family:inherit;
   }
 
-  /* ---------- Ranking Diario ---------- */
+  /* ---------- Ranking Semanal ---------- */
   .rank-cat-tabs{ display:flex;gap:4px;margin-bottom:6px; }
   .rank-cat-tab{
     flex:1;text-align:center;font-size:10px;font-weight:bold;
@@ -1047,11 +1047,7 @@
           </div>
         </div>
       </div>
-      <div class="accordion-item">
-        <button class="accordion-header" data-target="acc-daily">&#127873; Recompensas Diárias</button>
-        <div class="accordion-body" id="acc-daily">
-          <div class="daily-panel" id="dailyPanel"><!-- preenchido via JS: renderDailyPanel() --></div>
-        </div>
+      
       </div>
       <div class="accordion-item">
         <button class="accordion-header" data-target="acc-vip">&#128081; VIP e Status da Partida</button>
@@ -1093,7 +1089,7 @@
 
 /* ============================================================
    SUPABASE - CONTA DO JOGADOR (substitui o localStorage para
-   Carteira, VIP e Passes do Ranking Diario por uma conta de
+   Carteira, VIP e Passes do Ranking Semanal por uma conta de
    verdade, sincronizada entre aparelhos). Ver login.html (tela
    de entrada) e schema.sql (esquema do banco) que acompanham
    este arquivo - os 3 precisam estar publicados juntos.
@@ -3645,7 +3641,7 @@ function saveReferralRewardState(referrerId, state){
 function grantReferralReward(referrerId){
   const state = loadReferralRewardState(referrerId);
   if(state.grantedToday >= REFERRAL_DAILY_CAP){
-    console.warn('[Indique e Ganhe] limite diario (' + REFERRAL_DAILY_CAP + ') atingido para', referrerId);
+    console.warn('[Indique e Ganhe] limite Semanal (' + REFERRAL_DAILY_CAP + ') atingido para', referrerId);
     return false;
   }
   state.grantedToday += 1;
@@ -3744,7 +3740,7 @@ function tryStartNewRun(){
   }
 }
 
-// PvP e Sobrevivencia exigem o Passe Diario ativo - sem passe, mostra esta
+// PvP e Sobrevivencia exigem o Passe Semanal ativo - sem passe, mostra esta
 // tela com botao de compra exclusivamente via Carteira Polygon.
 function showBuyPassRequiredScreen(){
   if(isFreeEventActive()){
@@ -3756,7 +3752,7 @@ function showBuyPassRequiredScreen(){
   overlay.classList.remove('hidden');
   overlay.innerHTML =
     '<h1>&#128274; Passe de Batalha Necessario</h1>' +
-    '<p>O Passe Diario / Battle Pass e necessario para jogar os modos ranqueados (' + modeLabel + '). Desbloqueia pontuar e competir no ranking ate as 21h de hoje.</p>' +
+    '<p>O Passe Semanal / Battle Pass e necessario para jogar os modos ranqueados (' + modeLabel + '). Desbloqueia pontuar e competir no ranking ate as 21h de hoje.</p>' +
     '<p class="daily-milestone" style="max-width:340px;margin:8px auto;text-align:center;">Valor do Passe: <b>' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL</b> (~R$ 3,00)</p>' +
     '<button id="buyPassPolyNowBtn" class="polygon-pay-btn" style="width:100%;max-width:340px;margin:10px auto;"><span class="poly-icon"></span> Desbloquear com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL / ~R$ 3,00)</button>' +
     '<button id="backToMenuFromLockBtn" style="margin-top:12px;background:linear-gradient(180deg,#3a2f4d,#241c2c);">Voltar ao Menu</button>';
@@ -3927,7 +3923,7 @@ function toggleAccordion(headerEl){
     }
   }
 
-  // ao abrir o Ranking Diario, busca os dados mais recentes do servidor
+  // ao abrir o Ranking Semanal, busca os dados mais recentes do servidor
   if(body.id === 'acc-rank' && willOpen) refreshDailyRankPanels();
 }
 document.querySelectorAll('.accordion-header').forEach(function(header){
@@ -3953,7 +3949,7 @@ function renderGameModesPanel(){
       const champion = m.rankMode ? champions[m.rankMode] : null;
       const coverStyle = m.cover ? ' style="background-image:linear-gradient(180deg,rgba(10,6,15,.15),rgba(10,6,15,.85)),url(\'' + m.cover + '\');background-size:cover;background-position:center 20%;"' : '';
       return '<div class="mode-card mode-card-big' + (sel?' selected':'') + (m.cover?' has-cover':'') + '" data-mode="' + m.id + '"' + coverStyle + '>' +
-        '<span class="mode-name">' + m.icon + ' ' + m.name + (m.demo ? ' <span class="mode-demo-tag">DEMO</span>' : '') + '<br><small>' + m.desc + (locked ? ' &mdash; \u{1F512} Passe Diario necessario' : (m.freeTag ? ' &mdash; <b style="color:#5ee6ff;">🎉 100% Grátis no Evento</b>' : '')) + '</small>' +
+        '<span class="mode-name">' + m.icon + ' ' + m.name + (m.demo ? ' <span class="mode-demo-tag">DEMO</span>' : '') + '<br><small>' + m.desc + (locked ? ' &mdash; \u{1F512} Passe Semanal (R$ 10,00) necessario' : (m.freeTag ? ' &mdash; <b style="color:#5ee6ff;">🎉 100% Grátis no Evento</b>' : '')) + '</small>' +
         (champion ? '<br><small class="mode-champion-tag">\u{1F451} Ultimo Campeao: ' + escapeHtml(champion) + '</small>' : '') +
         '</span>' +
         (sel ? '<span class="mode-badge sel">SELECIONADO</span>' : (m.freeTag ? '<span class="mode-badge" style="background:rgba(94,230,255,.18);color:#5ee6ff;border-color:rgba(94,230,255,.45);">🎉 GRÁTIS</span>' : (locked ? '<span class="mode-badge">\u{1F512} PASSE</span>' : ''))) +
@@ -4201,7 +4197,7 @@ function renderLeaderboardPanel(){
 }
 
 /* ============================================================
-   RANKING DIARIO POR CATEGORIA (MODO RANQUEADO - SEM PREMIACAO)
+   RANKING Semanal POR CATEGORIA (MODO RANQUEADO - SEM PREMIACAO)
 
    IMPORTANTE - ESCOPO DESTA DEMO (mesmo aviso do ranking de temporada
    acima): sem backend real conectado, tudo aqui e persistido em
@@ -4232,7 +4228,7 @@ const PVP_POINTS_BY_PLACEMENT = {1:5, 2:2}; // 1o=vencedor, 2o=perdedor
 
 let selectedRankMode = 'survival';
 
-// Nome usado para identificar o jogador no Ranking Diario - o apelido da
+// Nome usado para identificar o jogador no Ranking Semanal - o apelido da
 // conta (Supabase) quando logado, ou o nome local antigo como fallback
 // offline. BUG CORRIGIDO: o modulo de ranking usava "playerName" (o nome
 // local antigo) direto em todo lugar, mesmo com conta logada - por isso os
@@ -4360,7 +4356,7 @@ function archiveDailyCycleAndAwardBadges(mode, closedData){
 
 // Le o ranking ao vivo do MODO, fechando e arquivando automaticamente o
 // ciclo anterior (com titulo cosmetico) se o corte de 21h ja passou. Comeca
-// VAZIO a cada ciclo novo - o Ranking Diario e so de jogadores REAIS que
+// VAZIO a cada ciclo novo - o Ranking Semanal e so de jogadores REAIS que
 // pontuarem (os bots continuam ativos nas partidas normalmente, so nao
 // aparecem/contam aqui).
 function loadDailyRank(mode){
@@ -4381,7 +4377,7 @@ function saveDailyRank(mode, data){
 }
 
 // ============================================================
-// RANKING DIARIO COMPARTILHADO (Supabase)
+// RANKING Semanal COMPARTILHADO (Supabase)
 // O localStorage acima continua servindo de cache/fallback offline, mas
 // quando ha conta logada o ranking REAL vem do banco - antes cada aparelho
 // tinha o proprio ranking isolado, e um jogador nunca via o outro.
@@ -4399,7 +4395,7 @@ function fetchDailyRankFromSupabase(mode){
     .order('points', { ascending: false })
     .limit(50)
     .then(function(res){
-      if(res.error){ console.warn('[Ranking Diario] falha ao buscar:', res.error.message); return null; }
+      if(res.error){ console.warn('[Ranking Semanal] falha ao buscar:', res.error.message); return null; }
       sharedDailyRankCache[mode] = (res.data||[]).map(function(r){
         return { name:r.username, points:r.points, matches:r.matches, bestPlacement:r.best_placement };
       });
@@ -4442,11 +4438,11 @@ function refreshDailyRankPanels(){
     fetchPreviousCycleWinnersFromSupabase()
   ])
     .then(function(){ renderDailyRankPanel(); })
-    .catch(function(err){ console.warn('[Ranking Diario] erro ao atualizar:', err.message); });
+    .catch(function(err){ console.warn('[Ranking Semanal] erro ao atualizar:', err.message); });
 }
 
 /* ============================================================
-   RANKING DIARIO EM TEMPO REAL (Supabase Realtime)
+   RANKING Semanal EM TEMPO REAL (Supabase Realtime)
    Qualquer INSERT/UPDATE em daily_rank com o cycle_date
    atual dispara uma atualizacao automatica no painel - todos
    os jogadores veem o rank ao vivo sem precisar recarregar.
@@ -4513,7 +4509,7 @@ function submitDailyRankPointsToSupabase(mode, points, placement){
     p_points: points,
     p_placement: placement
   }).then(function(res){
-    if(res.error) console.warn('[Ranking Diario] falha ao enviar pontos:', res.error.message);
+    if(res.error) console.warn('[Ranking Semanal] falha ao enviar pontos:', res.error.message);
     else fetchDailyRankFromSupabase(mode).then(function(){ renderDailyRankPanel(); });
   });
 }
@@ -4568,7 +4564,7 @@ function renderRankBoardHtml(mode){
 
   const countdownText = isFree
     ? '\u23F3 Evento Especial Encerra em ' + formatCountdown(getFreeEventTimeRemainingMs()) + ' (30/08 as 21h)'
-    : '\u23F1\uFE0F Ciclo Diario Encerra em ' + formatCountdown(cycleEndsAt - Date.now()) + ' (21h)';
+    : '\u23F1\uFE0F Ciclo Semanal Encerra em ' + formatCountdown(cycleEndsAt - Date.now()) + ' (21h)';
 
   const cycleParts = (data.cycleDate || '').split('-');
   const cycleDateDisplay = cycleParts.length === 3 ? (cycleParts[2] + '/' + cycleParts[1]) : 'hoje';
@@ -4689,12 +4685,12 @@ function renderDailyRankPanel(){
     : (hasPass
         ? '<div class="rank-pass-row"><span class="rank-pass-status">\u2705 Passe ativo hoje (vale PvP e Sobrevivencia)</span></div>'
         : '<div class="rank-pass-row" style="flex-direction:column;align-items:stretch;gap:6px;">' +
-            '<span class="daily-milestone">&#128274; Desbloqueie o Passe para pontuar nos Rankings Diarios:</span>' +
+            '<span class="daily-milestone">&#128274; Desbloqueie o Passe para pontuar nos Rankings Semanals:</span>' +
             '<button id="buyRankPassPolyBtn" class="polygon-pay-btn" style="width:100%;"><span class="poly-icon"></span> Desbloquear Passe com Polygon (' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL / ~R$ 3,00)</button>' +
           '</div>');
 
   el.innerHTML =
-    '<div class="daily-title">\u{1F3C6} Rankings Diarios' + (isFree ? ' &bull; <span style="color:#5ee6ff;font-size:11px;">Passe Livre Liberado</span>' : '') + '</div>' +
+    '<div class="daily-title">\u{1F3C6} Rankings Semanals' + (isFree ? ' &bull; <span style="color:#5ee6ff;font-size:11px;">Passe Livre Liberado</span>' : '') + '</div>' +
     previousWinnerHtml +
     myTitlesHtml +
     passRowHtml +
@@ -5956,7 +5952,7 @@ function makeArenaHero(col,row,charIndex){
 
    REGRA IMPORTANTE: estes itens NAO valem no Modo Sobrevivencia
    RANQUEADO (quando o jogador tem passe ativo na categoria
-   selecionada do Ranking Diario) - aquele modo continua 100%
+   selecionada do Ranking Semanal) - aquele modo continua 100%
    habilidade, sem vantagem paga, conforme definido nas regras do
    ranking. Ver applyEquippedItemEffects() e seu uso condicional
    em startSurvivalMatch().
@@ -6067,7 +6063,7 @@ function renderEquipmentPanel(){
   const hasPass = hasActiveDailyPass();
   const passHtml =
     '<div class="equip-item-row" style="flex-wrap:wrap;gap:8px;">' +
-      '<span class="equip-item-info" style="flex:1 1 100%;"><b>Passe Diario / Battle Pass</b><br><small>Libera pontuar no Ranking Diario (PvP e Sobrevivencia) &bull; Valor: <b>' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL</b> (~R$ 3,00)</small></span>' +
+      '<span class="equip-item-info" style="flex:1 1 100%;"><b>Passe Semanal / Battle Pass</b><br><small>Libera pontuar no Ranking Semanal (PvP e Sobrevivencia) &bull; Valor: <b>' + DAILY_PASS_PRICE_POL.toFixed(2) + ' POL</b> (~R$ 3,00)</small></span>' +
       (isFree
         ? '<span class="rank-pass-status" style="color:#5ee6ff;font-weight:bold;">\u{1F389} Evento Gratis Ativo (Passe Livre ate 30/08 as 21h)</span>'
         : (hasPass
@@ -6102,8 +6098,8 @@ function renderEquipmentPanel(){
   }).join('');
 
   el.innerHTML =
-    '<div class="daily-title">\u{1F3AB} Passe Diario</div>' +
-    '<div class="daily-milestone">Compre e ja pode disputar o Ranking Diario no PvP e na Sobrevivencia ate o fechamento de hoje (21h).</div>' +
+    '<div class="daily-title">\u{1F3AB} Passe Semanal</div>' +
+    '<div class="daily-milestone">Compre e ja pode disputar o Ranking Semanal no PvP e na Sobrevivencia ate o fechamento de hoje (21h).</div>' +
     '<div class="equip-list">' + passHtml + '</div>' +
     '<div class="daily-title" style="margin-top:12px;">\u{1F6D2} Loja de Equipamentos</div>' +
     '<div class="daily-milestone">Sua carteira: <b>' + walletGold + ' \u{1FA99}</b> (ganhe jogando a Campanha)</div>' +
@@ -8373,7 +8369,7 @@ function updatePvpMode(dt, now){
     else text = pvpIsOnline ? 'Voce venceu!' : 'Voce venceu!';
     const modeDesc = pvpIsOnline ? 'Partida de PvP Online' : (pvpP2.isBot ? 'Partida de PvP vs Bot' : 'Partida de PvP Local');
     const subtitle = modeDesc + ' encerrada.' +
-      (pointsEarned > 0 ? ' Voce ganhou +' + pointsEarned + ' pontos no Ranking Diario!' : '');
+      (pointsEarned > 0 ? ' Voce ganhou +' + pointsEarned + ' pontos no Ranking Semanal!' : '');
     clearArenaResultTimeout();
     arenaResultTimeoutId = setTimeout(function(){ showArenaResult(text, subtitle); }, 450);
   }
@@ -9016,7 +9012,7 @@ function updateSurvivalMode(dt, now){
       try{ stopClosingAmbience(closingAmbienceSurvival); }catch(e){ console.error('[Sobrevivencia] stopClosingAmbience falhou:', e); }
     }
     const subtitle = pointsEarned > 0
-      ? 'Modo Sobrevivencia encerrado. +' + pointsEarned + ' pontos no Ranking Diario!'
+      ? 'Modo Sobrevivencia encerrado. +' + pointsEarned + ' pontos no Ranking Semanal!'
       : 'Modo Sobrevivencia encerrado.';
     // a tela de resultado SEMPRE aparece, mesmo que algo acima tenha falhado
     clearArenaResultTimeout();
@@ -9256,7 +9252,7 @@ GamePixSDK.init();
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 document.addEventListener('touchmove', function(e){
   const overlay = document.getElementById('overlay');
-  // deixa rolar livremente os menus (selecao de personagem, paineis diarios, ranking etc.)
+  // deixa rolar livremente os menus (selecao de personagem, paineis Semanals, ranking etc.)
   if(overlay && !overlay.classList.contains('hidden') && overlay.contains(e.target)) return;
   e.preventDefault();
 }, {passive:false});
@@ -9267,6 +9263,18 @@ checkAuthAndBoot();
 
 })();
 </script>
+<script type="module">
+  import { RuneBlastEconomy } from './src/index.js';
+  window.economy = new RuneBlastEconomy();
+  // Try to load user data if logged in
+  const currentUser = localStorage.getItem('supabase_user_id');
+  if (currentUser) {
+    window.economy.loadFromSupabase(currentUser).then(() => {
+      console.log('Economy loaded', window.economy.getFullStatus());
+    });
+  }
+</script>
 </body>
 </html>
+
 
