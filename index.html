@@ -4060,7 +4060,7 @@ const INITIAL_SEASON_PRIZE_POOL = 100.00;
 const PRIZE_POOL_TIER1 = 300; // R$ - premiacao base: TOP 10 + 1 sorteado
 const PRIZE_POOL_TIER2 = 600; // R$ - premiacao ampliada: TOP 20 + 2 sorteados
 
-const MOCK_PLAYERS_TO_REMOVE = ['gmblack', 'bili', 'marymovie'];
+const MOCK_PLAYERS_TO_REMOVE = ['gmblack', 'bili', 'marymovie', 'sirlancelot', 'darkmage', 'teste', 'test', 'bot', 'guest'];
 function isMockPlayer(name){
   if(!name) return false;
   const n = String(name).toLowerCase().trim();
@@ -4101,15 +4101,18 @@ function savePrizePool(v){
 let seasonPrizePool = loadPrizePool();
 
 // Zera completamente qualquer mock data e pontuacoes de teste anteriores
-const SEASON_RESET_ZERO_V3 = 'rb_season_zero_clean_v3';
+const SEASON_RESET_ZERO_V4 = 'rb_season_zero_clean_v4';
 (function clearSeasonMockDataOnce(){
   try{
-    if(!localStorage.getItem(SEASON_RESET_ZERO_V3)){
+    if(!localStorage.getItem(SEASON_RESET_ZERO_V4)){
       localStorage.removeItem(LEADERBOARD_KEY);
       localStorage.removeItem(PLAYER_BEST_SCORE_KEY);
       localStorage.removeItem(SEASON_POINTS_KEY);
       localStorage.removeItem(COIN_REMAINDER_KEY);
-      localStorage.setItem(SEASON_RESET_ZERO_V3, '1');
+      localStorage.removeItem(PRIZE_POOL_KEY);
+      localStorage.removeItem('rb_daily_rank_v2_survival');
+      localStorage.removeItem('rb_daily_rank_v2_pvp');
+      localStorage.setItem(SEASON_RESET_ZERO_V4, '1');
     }
   }catch(e){}
 })();
@@ -4335,7 +4338,7 @@ function getMyRankName(){
 // Timestamp exato em ms do encerramento do ciclo semanal (sempre no DOMINGO AS 21:00h).
 // Cria um loop semanal continuo: encerra num domingo as 21h e imediatamente inicia o novo ciclo ate o proximo domingo as 21h.
 function getNextWeeklyResetTimestamp(date){
-  const d = new Date((date || new Date()).getTime());
+  const d = date ? (date instanceof Date ? new Date(date.getTime()) : new Date(date)) : new Date();
   const day = d.getDay();
   const target = new Date(d);
 
@@ -4373,7 +4376,11 @@ function getPreviousCycleDateKey(date){
 function getCycleEndTimestamp(cycleDateKey){
   if(!cycleDateKey) return getNextWeeklyResetTimestamp();
   const parts = cycleDateKey.split('-').map(Number);
-  return new Date(parts[0], parts[1]-1, parts[2], WEEKLY_RESET_HOUR, 0, 0, 0).getTime();
+  const ts = new Date(parts[0], parts[1]-1, parts[2], WEEKLY_RESET_HOUR, 0, 0, 0).getTime();
+  if(isNaN(ts) || ts <= Date.now()){
+    return getNextWeeklyResetTimestamp();
+  }
+  return ts;
 }
 
 // Passes SEPARADOS por modo: 'survival' e 'pvp', cada um com validade de 7 dias.
@@ -4701,7 +4708,7 @@ function renderRankBoardHtml(mode){
   const sorted = players.slice().sort(function(a,b){ return b.points-a.points; });
   const myEntry = sorted.find(function(p){ return p.name===myName; });
   const myRank = myEntry ? sorted.indexOf(myEntry)+1 : null;
-  const cycleEndsAt = getCycleEndTimestamp(data.cycleDate);
+  const cycleEndsAt = getNextWeeklyResetTimestamp(); // SEMPRE o proximo domingo as 21:00h
   const isFree = isFreeEventActive();
 
   const msRemaining = Math.max(0, cycleEndsAt - Date.now());
@@ -6169,7 +6176,7 @@ function saveEquipped(e){
 
 // Compra de itens temporariamente suspensa para manutencao da loja
 function buyEquipmentItem(itemId){
-  logStatus('Loja de Equipamentos em Manutenção / Brevemente Disponível', 4000);
+  logStatus('Loja de Equipamentos em Manutenção', 4000);
   return false;
 }
 
@@ -6297,7 +6304,7 @@ function renderEquipmentPanel(){
     '<div class="equip-list">' + passHtml + '</div>' +
     '<div class="daily-title" style="margin-top:16px;">&#128722; Loja de Equipamentos</div>' +
     '<div style="background:linear-gradient(135deg,rgba(255,160,0,0.14),rgba(200,100,0,0.18));border:1px solid rgba(255,190,0,0.6);border-radius:8px;padding:12px;margin:8px 0 12px 0;text-align:center;">' +
-      '<div style="color:#ffd700;font-size:13px;font-weight:bold;margin-bottom:4px;">&#9888;&#65039; Loja de Equipamentos em Manutenção / Brevemente Disponível</div>' +
+      '<div style="color:#ffd700;font-size:13px;font-weight:bold;margin-bottom:4px;">&#9888;&#65039; Loja de Equipamentos em Manutenção</div>' +
       '<div style="color:#ccc;font-size:11px;">A compra de novos equipamentos e itens com moedas está temporariamente desativada. Itens já adquiridos continuam disponíveis no inventário para equipar.</div>' +
     '</div>' +
     '<div class="daily-milestone">Sua carteira: <b>' + walletGold + ' &#129689;</b></div>' +
