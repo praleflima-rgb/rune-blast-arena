@@ -7,6 +7,19 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Rune Blast Arena</title>
+<!-- Google AdSense / AdMob H5 Games Ads SDK -->
+<script async
+  data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+  data-ad-frequency-hint="30s"
+  data-adbreak-test="on"
+  crossorigin="anonymous"
+  src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js">
+</script>
+<script>
+  window.adsbygoogle = window.adsbygoogle || [];
+  window.adBreak = function(o) { adsbygoogle.push(o); };
+  window.adConfig = function(o) { adsbygoogle.push(o); };
+</script>
 <!-- CrazyGames SDK: confirme a versao/URL mais recente na documentacao oficial do parceiro antes do deploy -->
 <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
 <!-- GamePix SDK: URL oficial da documentacao (partners.gamepix.com) - confirme no painel da GamePix apos o cadastro se ha uma URL de producao diferente -->
@@ -338,6 +351,17 @@
     letter-spacing:.5px;margin-top:2px;
   }
   .ad-btn:disabled{ opacity:.55; box-shadow:none; }
+
+  /* ---------- Container de Banner de Anúncios ---------- */
+  .ad-banner-container{
+    position:fixed;
+    bottom:0;left:50%;transform:translateX(-50%);
+    z-index:900;
+    display:none;
+    justify-content:center;align-items:center;
+    pointer-events:auto;
+    max-width:100vw;
+  }
 
   .lb-pool-bar-wrap{
     position:relative;width:100%;height:10px;
@@ -839,6 +863,14 @@
 
 <div id="game-container">
   <canvas id="gameCanvas"></canvas>
+
+  <!-- Container de Banner de Anuncios Google AdSense -->
+  <div id="adBannerContainer" class="ad-banner-container">
+    <ins class="adsbygoogle"
+         style="display:inline-block;width:320px;height:50px"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+         data-ad-slot="XXXXXXXXXX"></ins>
+  </div>
 
   <div id="stageToast"></div>
   <div id="statusLog" class="hidden"></div>
@@ -2998,6 +3030,11 @@ const CrazySDK = (function(){
   // callbacks: { adStarted, adFinished, adError }
   function showRewardedAd(callbacks){
     callbacks = callbacks || {};
+    // Se o AdManager (Google H5 Games Ads / AdSense) estiver disponivel, prioriza ele
+    if(window.AdManager && typeof window.AdManager.showRewarded === 'function' && window.AdManager.isGoogleH5Available()){
+      window.AdManager.showRewarded('rewarded_ad', callbacks.adFinished, callbacks.adError);
+      return;
+    }
     pauseGame();
     if(!ready || !sdk.ad){
       console.warn('[CrazySDK] Rewarded ad indisponivel (modo standalone) - concedendo recompensa direto para nao travar o teste local.');
@@ -3020,11 +3057,32 @@ const CrazySDK = (function(){
     });
   }
 
+  // Exibe um anuncio Interstitial (midgame break)
+  function showInterstitial(callbacks){
+    callbacks = callbacks || {};
+    if(window.AdManager && typeof window.AdManager.showInterstitial === 'function'){
+      window.AdManager.showInterstitial('midgame_break', callbacks.adFinished);
+      return;
+    }
+    pauseGame();
+    if(!ready || !sdk.ad){
+      resumeGame();
+      if(callbacks.adFinished) callbacks.adFinished();
+      return;
+    }
+    sdk.ad.requestAd('midgame', {
+      adStarted: function(){ if(callbacks.adStarted) callbacks.adStarted(); },
+      adError: function(err){ resumeGame(); if(callbacks.adError) callbacks.adError(err); },
+      adFinished: function(){ resumeGame(); if(callbacks.adFinished) callbacks.adFinished(); }
+    });
+  }
+
   return {
     init:init, isReady:isReady,
     gameplayStart:gameplayStart, gameplayStop:gameplayStop,
     loadingStart:loadingStart, loadingStop:loadingStop,
-    showRewardedAd:showRewardedAd
+    showRewardedAd:showRewardedAd,
+    showInterstitial:showInterstitial
   };
 })();
 
@@ -3871,16 +3929,24 @@ function showMatchCooldownScreen(){
     if(adBtn){
       adBtn.addEventListener('click', function(){
         adBtn.disabled = true;
-        CrazySDK.showRewardedAd({
-          adFinished: function(){
-            // Anuncio: credita +1 tentativa imediata sem zerar o cooldown
-            matchState.attemptsLeft = 1;
-            saveMatchState(matchState);
-            if(matchCooldownIntervalId){ clearInterval(matchCooldownIntervalId); matchCooldownIntervalId = null; }
-            tryStartNewRun();
-          },
-          adError: function(){ adBtn.disabled = false; }
-        });
+        const grantAttempt = function(){
+          // Anuncio: credita +1 tentativa imediata sem zerar o cooldown
+          matchState.attemptsLeft = 1;
+          saveMatchState(matchState);
+          if(matchCooldownIntervalId){ clearInterval(matchCooldownIntervalId); matchCooldownIntervalId = null; }
+          tryStartNewRun();
+        };
+
+        if(window.AdManager && typeof window.AdManager.showRewarded === 'function'){
+          window.AdManager.showRewarded('extra_attempt', grantAttempt, function(){
+            adBtn.disabled = false;
+          });
+        } else {
+          CrazySDK.showRewardedAd({
+            adFinished: grantAttempt,
+            adError: function(){ adBtn.disabled = false; }
+          });
+        }
       });
     }
   }
@@ -3923,7 +3989,10 @@ function renderMatchPanel(){
       '<div class="daily-title">' + statusTxt + '</div>' +
       walletBadge +
       '<div class="daily-milestone">&#128081; VIP: partidas ilimitadas &mdash; <b>' + VIP_PRICE_POL.toFixed(0) + ' POL</b> (~$' + VIP_PRICE_USD.toFixed(2) + ' USD) / ' + VIP_DURATION_DAYS + ' dias</div>' +
-      '<button id="buyVipPolyPanelBtn" class="polygon-pay-btn" style="width:100%;"><span class="poly-icon"></span> Comprar VIP com Polygon (' + VIP_PRICE_POL.toFixed(0) + ' POL / $' + VIP_PRICE_USD.toFixed(2) + ' USD)</button>';
+      '<button id="buyVipPolyPanelBtn" class="polygon-pay-btn" style="width:100%;"><span class="poly-icon"></span> Comprar VIP com Polygon (' + VIP_PRICE_POL.toFixed(0) + ' POL / $' + VIP_PRICE_USD.toFixed(2) + ' USD)</button>' +
+      (remaining > 0
+        ? '<button id="watchAdAttemptPanelBtn" class="ad-btn" style="width:100%;margin-top:8px;">&#127909; Assistir Anuncio (+1 Tentativa Imediata)</button>'
+        : '');
   }
 
   const polyBtn = document.getElementById('buyVipPolyPanelBtn');
@@ -3934,6 +4003,28 @@ function renderMatchPanel(){
         pricePOL: VIP_PRICE_POL,
         onSuccess: function(tx){ activateVipReal(tx); }
       });
+    });
+  }
+
+  const adPanelBtn = document.getElementById('watchAdAttemptPanelBtn');
+  if(adPanelBtn){
+    adPanelBtn.addEventListener('click', function(){
+      adPanelBtn.disabled = true;
+      const grantAttempt = function(){
+        matchState.attemptsLeft = 1;
+        saveMatchState(matchState);
+        renderMatchPanel();
+      };
+      if(window.AdManager && typeof window.AdManager.showRewarded === 'function'){
+        window.AdManager.showRewarded('panel_extra_attempt', grantAttempt, function(){
+          adPanelBtn.disabled = false;
+        });
+      } else {
+        CrazySDK.showRewardedAd({
+          adFinished: grantAttempt,
+          adError: function(){ adPanelBtn.disabled = false; }
+        });
+      }
     });
   }
 }
@@ -6543,7 +6634,13 @@ function showLevelComplete(){
     '<button id="nextLevelBtn">Avancar para a Fase ' + (level+1) + '</button>';
   document.getElementById('nextLevelBtn').addEventListener('click', function(){
     overlay.classList.add('hidden');
-    startLevel(level+1);
+    if(window.AdManager && typeof window.AdManager.showInterstitial === 'function'){
+      window.AdManager.showInterstitial('level_' + level + '_cleared', function(){
+        startLevel(level+1);
+      });
+    } else {
+      startLevel(level+1);
+    }
   });
 }
 
@@ -6589,33 +6686,41 @@ function showSupremeVictory(){
   if(doubleBtn){
     doubleBtn.addEventListener('click', function(){
       doubleBtn.disabled = true;
-      CrazySDK.showRewardedAd({
-        adFinished: function(){
-          coins *= 2;
-          usedDoubleCoinsThisMatch = true;
-          document.getElementById('victoryCoinsText').innerHTML = coins + ' &#129689;';
-          // converte SO as moedas extras que acabaram de aparecer (as
-          // originais ja viraram pontos quando a tela foi montada)
-          const extraCoins = Math.max(0, coins - coinsAlreadyConvertedThisRun);
-          const extraGain = convertCoinsToSeasonPoints(extraCoins);
-          coinsAlreadyConvertedThisRun = coins;
-          const gainEl = document.getElementById('seasonGainText');
-          if(gainEl){
-            gainEl.textContent = (extraGain.pointsEarned > 0
-              ? '+' + extraGain.pointsEarned + ' ponto' + (extraGain.pointsEarned>1?'s':'') + ' extra' + (extraGain.pointsEarned>1?'s':'') + ' de temporada!'
-              : 'Moedas dobradas') + ' (' + extraGain.remainder + '/' + COINS_PER_SEASON_POINT + ' moedas para o proximo)';
-          }
-          score = computeFinalScore();
-          submitScore(score);
-          const newRank = getPlayerRank();
-          document.getElementById('scoreRankText').textContent =
-            'Pontuacao da temporada: ' + score + (newRank ? ' \u2014 sua posicao no ranking: #' + newRank : '');
-          doubleBtn.textContent = 'Recompensa dobrada!';
-        },
-        adError: function(){
-          doubleBtn.disabled = false; // anuncio falhou/fechado antes do fim: permite tentar de novo
+      const onReward = function(){
+        coins *= 2;
+        usedDoubleCoinsThisMatch = true;
+        document.getElementById('victoryCoinsText').innerHTML = coins + ' &#129689;';
+        // converte SO as moedas extras que acabaram de aparecer (as
+        // originais ja viraram pontos quando a tela foi montada)
+        const extraCoins = Math.max(0, coins - coinsAlreadyConvertedThisRun);
+        const extraGain = convertCoinsToSeasonPoints(extraCoins);
+        coinsAlreadyConvertedThisRun = coins;
+        const gainEl = document.getElementById('seasonGainText');
+        if(gainEl){
+          gainEl.textContent = (extraGain.pointsEarned > 0
+            ? '+' + extraGain.pointsEarned + ' ponto' + (extraGain.pointsEarned>1?'s':'') + ' extra' + (extraGain.pointsEarned>1?'s':'') + ' de temporada!'
+            : 'Moedas dobradas') + ' (' + extraGain.remainder + '/' + COINS_PER_SEASON_POINT + ' moedas para o proximo)';
         }
-      });
+        score = computeFinalScore();
+        submitScore(score);
+        const newRank = getPlayerRank();
+        document.getElementById('scoreRankText').textContent =
+          'Pontuacao da temporada: ' + score + (newRank ? ' \u2014 sua posicao no ranking: #' + newRank : '');
+        doubleBtn.textContent = 'Recompensa dobrada!';
+      };
+
+      if(window.AdManager && typeof window.AdManager.showRewarded === 'function'){
+        window.AdManager.showRewarded('double_coins', onReward, function(){
+          doubleBtn.disabled = false;
+        });
+      } else {
+        CrazySDK.showRewardedAd({
+          adFinished: onReward,
+          adError: function(){
+            doubleBtn.disabled = false; // anuncio falhou/fechado antes do fim: permite tentar de novo
+          }
+        });
+      }
     });
   }
 
@@ -6682,15 +6787,23 @@ function showGameOver(){
   if(adBtn){
     adBtn.addEventListener('click', function(){
       adBtn.disabled = true;
-      CrazySDK.showRewardedAd({
-        adFinished: function(){
-          usedReviveThisMatch = true;
-          revivePlayerAfterAd();
-        },
-        adError: function(){
-          adBtn.disabled = false; // anuncio falhou/fechado antes do fim: permite tentar de novo
-        }
-      });
+      const onReward = function(){
+        usedReviveThisMatch = true;
+        revivePlayerAfterAd();
+      };
+
+      if(window.AdManager && typeof window.AdManager.showRewarded === 'function'){
+        window.AdManager.showRewarded('revive_match', onReward, function(){
+          adBtn.disabled = false;
+        });
+      } else {
+        CrazySDK.showRewardedAd({
+          adFinished: onReward,
+          adError: function(){
+            adBtn.disabled = false; // anuncio falhou/fechado antes do fim: permite tentar de novo
+          }
+        });
+      }
     });
   }
 
@@ -9470,7 +9583,9 @@ checkAuthAndBoot();
 })();
 </script>
 <script type="module">
-  import { RuneBlastEconomy } from './src/index.js';
+  import { RuneBlastEconomy, AdManager } from './src/index.js';
+  window.AdManager = AdManager;
+  window.adManager = AdManager;
   window.economy = new RuneBlastEconomy();
   // Try to load user data if logged in
   const currentUser = localStorage.getItem('supabase_user_id');

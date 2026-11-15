@@ -10,9 +10,9 @@
  *   - ShopInventorySystem — loja e inventario de itens
  *   - SeasonManager      — modo historia por temporadas
  *   - SupabaseSync       — persistencia remota (v3)
+ *   - AdManager          — gestao de anuncios Google AdSense / H5 Games Ads & fallback
  *
  * Modulos REMOVIDOS nesta versao:
- *   - adManager.js            (anuncios Google H5 — descontinuado)
  *   - dailyRewardSystem.js    (recompensas diarias — descontinuado)
  */
 
@@ -24,6 +24,7 @@ export { ShopInventorySystem, SHOP_CATALOG } from './shopInventorySystem.js';
 export { SeasonManager, CURRENT_SEASON, WEEKLY_EVENT_CONFIG } from './seasonManager.js';
 export { SupabaseSync } from './supabaseSync.js';
 export { HeroController } from './heroController.js';
+export { AdManager, AdManagerClass, AD_CONFIG } from './adManager.js';
 
 // ================================================================
 // RuneBlastEconomy — Fachada de alto nivel
@@ -37,6 +38,7 @@ import { ShopInventorySystem } from './shopInventorySystem.js';
 import { SeasonManager } from './seasonManager.js';
 import { SupabaseSync } from './supabaseSync.js';
 import { HeroController } from './heroController.js';
+import { AdManager } from './adManager.js';
 
 export class RuneBlastEconomy {
   /**
@@ -96,7 +98,7 @@ export class RuneBlastEconomy {
       },
       onGrantExtraTry: (amount) => this.ranked.addExtraTries(amount),
       onGrantTournamentPass: () => this.ranked.grantTournamentPass(),
-      onGrantVipDiscount: (pct) => console.log([Economy] Desconto VIP de % pendente para proximo pagamento.),
+      onGrantVipDiscount: (pct) => console.log(`[Economy] Desconto VIP de ${pct}% pendente para proximo pagamento.`),
     });
 
     // Loja / Inventario
@@ -110,6 +112,9 @@ export class RuneBlastEconomy {
 
     // Controlador do Heroi
     this.hero = new HeroController();
+
+    // Sistema de Anuncios Google H5 / Fallback
+    this.ads = AdManager;
 
     // Codigo de indicacao
     if (userId) this.referral.generateCode(userId);
