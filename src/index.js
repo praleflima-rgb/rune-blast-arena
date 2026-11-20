@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file index.js
  * @description Fachada principal da economia do Rune Blast Arena (v3).
  *
@@ -11,9 +11,7 @@
  *   - SeasonManager      — modo historia por temporadas
  *   - SupabaseSync       — persistencia remota (v3)
  *   - AdManager          — gestao de anuncios Google AdSense / H5 Games Ads & fallback
- *
- * Modulos REMOVIDOS nesta versao:
- *   - dailyRewardSystem.js    (recompensas diarias — descontinuado)
+ *   - DailyRewardSystem  — ciclo de recompensas diarias
  */
 
 export { VipSystem } from './vipSystem.js';
@@ -25,6 +23,7 @@ export { SeasonManager, CURRENT_SEASON, WEEKLY_EVENT_CONFIG } from './seasonMana
 export { SupabaseSync } from './supabaseSync.js';
 export { HeroController } from './heroController.js';
 export { AdManager, AdManagerClass, AD_CONFIG } from './adManager.js';
+export { DailyRewardSystem, DAILY_REWARD_CYCLE } from './dailyRewardSystem.js';
 
 // ================================================================
 // RuneBlastEconomy — Fachada de alto nivel
@@ -39,6 +38,7 @@ import { SeasonManager } from './seasonManager.js';
 import { SupabaseSync } from './supabaseSync.js';
 import { HeroController } from './heroController.js';
 import { AdManager } from './adManager.js';
+import { DailyRewardSystem } from './dailyRewardSystem.js';
 
 export class RuneBlastEconomy {
   /**
@@ -115,6 +115,9 @@ export class RuneBlastEconomy {
 
     // Sistema de Anuncios Google H5 / Fallback
     this.ads = AdManager;
+
+    // Sistema de Recompensas Diarias
+    this.dailyRewards = new DailyRewardSystem({ vipSystem: this.vip });
 
     // Codigo de indicacao
     if (userId) this.referral.generateCode(userId);

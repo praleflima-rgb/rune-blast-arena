@@ -1081,6 +1081,13 @@
           </div>
         </div>
       </div>
+      <!-- Recompensas Diarias -->
+      <div class="accordion-item">
+        <button class="accordion-header" data-target="acc-daily">&#127873; Recompensas Diárias</button>
+        <div class="accordion-body" id="acc-daily">
+          <div class="daily-panel" id="dailyPanel"><!-- preenchido via JS: renderDailyPanel() --></div>
+        </div>
+      </div>
       <!-- 3. VIP & Status da Partida -->
       <div class="accordion-item">
         <button class="accordion-header" data-target="acc-vip">&#128081; VIP &amp; Status da Partida</button>
@@ -3228,17 +3235,25 @@ function checkDailyMilestones(){
 
 // assiste um anuncio a partir do Painel de Recompensas Diarias (fora de uma partida)
 function watchDailyAd(){
-  CrazySDK.showRewardedAd({
-    adFinished: function(){
-      dailyAdsState.count += 1;
-      checkDailyMilestones();
+  const onRewarded = function(){
+    dailyAdsState.count += 1;
+    checkDailyMilestones();
+    renderDailyPanel();
+    updateCapeButton();
+  };
+
+  if(window.AdManager && typeof window.AdManager.showRewarded === 'function'){
+    window.AdManager.showRewarded('daily_reward_ad', onRewarded, function(){
       renderDailyPanel();
-      updateCapeButton();
-    },
-    adError: function(){
-      renderDailyPanel(); // usuario fechou o anuncio antes do fim: nada e concedido
-    }
-  });
+    });
+  } else {
+    CrazySDK.showRewardedAd({
+      adFinished: onRewarded,
+      adError: function(){
+        renderDailyPanel(); // usuario fechou o anuncio antes do fim: nada e concedido
+      }
+    });
+  }
 }
 
 function renderDailyPanel(){
@@ -4076,6 +4091,8 @@ function toggleAccordion(headerEl){
 
   // ao abrir o Ranking Semanal, busca os dados mais recentes do servidor
   if(body.id === 'acc-rank' && willOpen) refreshDailyRankPanels();
+  // ao abrir Recompensas Diarias, atualiza o painel
+  if(body.id === 'acc-daily' && willOpen) renderDailyPanel();
 }
 document.querySelectorAll('.accordion-header').forEach(function(header){
   header.addEventListener('click', function(){ toggleAccordion(header); });
