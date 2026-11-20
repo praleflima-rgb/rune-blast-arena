@@ -6,9 +6,9 @@
  */
 
 export const AD_CONFIG = {
-  // Substitua pelo seu ID de publicador oficial do Google AdSense (ex: 'ca-pub-1234567890123456')
-  adClient: typeof window !== 'undefined' && window.GOOGLE_AD_CLIENT ? window.GOOGLE_AD_CLIENT : 'ca-pub-XXXXXXXXXXXXXXXX',
-  testMode: true, // Defina como false em produção
+  // ID de publicador oficial do Google AdSense
+  adClient: typeof window !== 'undefined' && window.GOOGLE_AD_CLIENT ? window.GOOGLE_AD_CLIENT : 'ca-pub-7288898515097751',
+  testMode: false,
   frequencyHint: '30s',
   bannerContainerId: 'adBannerContainer'
 };
